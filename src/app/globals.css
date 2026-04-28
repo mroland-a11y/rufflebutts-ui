@@ -12,8 +12,8 @@
   --border: #2a2d3a;
   --border-hover: #4a5080;
   --text-primary: #eeeeee;
-  --text-secondary: #a0a4bc;  /* was #8b8fa8 */
-  --text-muted: #72758a;       /* was #5a5d70 */
+  --text-secondary: #eeeeee;  /* was #a0a4bc */
+  --text-muted: #eeeeee;       /* was #72758a */
   --accent: #7b8cde;
   --accent-bg: #1e2240;
   --accent-btn: #3a4ab0;
