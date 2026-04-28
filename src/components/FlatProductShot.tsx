@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import styles from './FlatProductShot.module.css'
 
 const N8N_WEBHOOK = process.env.NEXT_PUBLIC_N8N_FLAT_WEBHOOK || ''
@@ -23,8 +23,63 @@ export default function FlatProductShot() {
   const [specialInstructions, setSpecialInstructions] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [jobs, setJobs] = useState<Job[]>([])
-  const [previewImages, setPreviewImages] = useState<string[]>([])
-  const fileRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)]
+
+  // Resizable panel state
+  const [previewWidth, setPreviewWidth] = useState(260)
+  const isDragging = useRef(false)
+  const dragStartX = useRef(0)
+  const dragStartWidth = useRef(0)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const MIN_PREVIEW = 180
+  const MAX_PREVIEW = 520
+  const MIN_FORM = 400
+
+  const fileRefs = [
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+  ]
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    isDragging.current = true
+    dragStartX.current = e.clientX
+    dragStartWidth.current = previewWidth
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }, [previewWidth])
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging.current || !containerRef.current) return
+      const delta = dragStartX.current - e.clientX
+      const containerWidth = containerRef.current.offsetWidth
+      const newPreviewWidth = Math.min(
+        MAX_PREVIEW,
+        Math.max(MIN_PREVIEW, dragStartWidth.current + delta)
+      )
+      const formWidth = containerWidth - newPreviewWidth - 6
+      if (formWidth >= MIN_FORM) {
+        setPreviewWidth(newPreviewWidth)
+      }
+    }
+
+    const handleMouseUp = () => {
+      if (!isDragging.current) return
+      isDragging.current = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [])
 
   const handleFileSelect = (index: number, file: File) => {
     const preview = URL.createObjectURL(file)
@@ -77,7 +132,7 @@ export default function FlatProductShot() {
   }
 
   return (
-    <div className={styles.layout}>
+    <div className={styles.layout} ref={containerRef}>
       <div className={styles.formPanel}>
         <div className={styles.topbar}>
           <div>
@@ -184,7 +239,16 @@ export default function FlatProductShot() {
         </div>
       </div>
 
-      <div className={styles.previewPanel}>
+      {/* Resizable divider */}
+      <div className={styles.resizeDivider} onMouseDown={handleMouseDown}>
+        <div className={styles.resizeHandle}>
+          <span />
+          <span />
+          <span />
+        </div>
+      </div>
+
+      <div className={styles.previewPanel} style={{ width: previewWidth, minWidth: previewWidth }}>
         <div className={styles.previewHeader}>Preview</div>
         {garments.filter(Boolean).length > 0 ? (
           garments.map((g, i) => g && (
