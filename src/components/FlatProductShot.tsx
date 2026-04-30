@@ -9,12 +9,25 @@ interface GarmentImage {
   preview: string
 }
 
+interface GeneratedImage {
+  index: number
+  fileId: string
+  viewUrl: string
+  imageUrl: string
+  fileName: string
+  status: 'pending' | 'approved' | 'rejected'
+  refineText?: string
+  showRefine?: boolean
+  originalFile?: File
+  shotStyle?: string
+}
+
 interface Job {
   id: string
   garments: number
   status: 'processing' | 'done' | 'error'
   time: string
-  images?: string[]
+  images?: GeneratedImage[]
 }
 
 export default function FlatProductShot() {
@@ -23,6 +36,8 @@ export default function FlatProductShot() {
   const [specialInstructions, setSpecialInstructions] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [jobs, setJobs] = useState<Job[]>([])
+  const [results, setResults] = useState<GeneratedImage[]>([])
+  const [refineSubmitting, setRefineSubmitting] = useState<string | null>(null)
 
   // Resizable panel state
   const [previewWidth, setPreviewWidth] = useState(260)
@@ -120,7 +135,18 @@ export default function FlatProductShot() {
     try {
       const response = await fetch(N8N_WEBHOOK, { method: 'POST', body: formData })
       if (response.ok) {
-        setJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: 'done' } : j))
+        const data = await response.json()
+        const responseData = Array.isArray(data) ? data[0] : data
+        const images: GeneratedImage[] = (responseData.images || []).map((img: GeneratedImage, i: number) => ({
+          ...img,
+          status: 'pending' as const,
+          showRefine: false,
+          refineText: '',
+          originalFile: garments[i]?.file,
+          shotStyle: shotStyle === 'flat_lay' ? 'Flat Lay' : 'Ghost Mannequin',
+        }))
+        setResults(prev => [...images, ...prev])
+        setJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: 'done', images } : j))
       } else {
         setJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: 'error' } : j))
       }
@@ -130,6 +156,58 @@ export default function FlatProductShot() {
 
     setSubmitting(false)
   }
+
+  const handleApprove = (fileId: string) => {
+    setResults(prev => prev.map(img => img.fileId === fileId ? { ...img, status: 'approved' } : img))
+  }
+
+  const handleReject = (fileId: string) => {
+    setResults(prev => prev.map(img => img.fileId === fileId ? { ...img, status: 'rejected' } : img))
+  }
+
+  const toggleRefine = (fileId: string) => {
+    setResults(prev => prev.map(img => img.fileId === fileId ? { ...img, showRefine: !img.showRefine } : img))
+  }
+
+  const handleRefineTextChange = (fileId: string, text: string) => {
+    setResults(prev => prev.map(img => img.fileId === fileId ? { ...img, refineText: text } : img))
+  }
+
+  const handleRefineSubmit = async (image: GeneratedImage) => {
+    if (!image.refineText || !image.originalFile) return
+    setRefineSubmitting(image.fileId)
+
+    const formData = new FormData()
+    formData.append('Shot Style', image.shotStyle || 'Flat Lay')
+    formData.append('Special Instructions', image.refineText || '')
+    formData.append('Garment_Image_1', image.originalFile)
+
+    try {
+      const response = await fetch(N8N_WEBHOOK, { method: 'POST', body: formData })
+      if (response.ok) {
+        const data = await response.json()
+        const responseData = Array.isArray(data) ? data[0] : data
+        const newImages: GeneratedImage[] = (responseData.images || []).map((img: GeneratedImage) => ({
+          ...img,
+          status: 'pending' as const,
+          showRefine: false,
+          refineText: '',
+          originalFile: image.originalFile,
+          shotStyle: image.shotStyle,
+        }))
+        setResults(prev => [...newImages, ...prev])
+        // Mark original as rejected after refinement
+        setResults(prev => prev.map(img => img.fileId === image.fileId ? { ...img, status: 'rejected', showRefine: false } : img))
+      }
+    } catch {
+      // silent fail
+    }
+
+    setRefineSubmitting(null)
+  }
+
+  const activeResults = results.filter(img => img.status !== 'rejected')
+  const approvedResults = results.filter(img => img.status === 'approved')
 
   return (
     <div className={styles.layout} ref={containerRef}>
@@ -141,7 +219,7 @@ export default function FlatProductShot() {
           </div>
           <div className={styles.modelBadge}>
             <span className={styles.statusDot} />
-            Gemini 3.1 Flash
+            Gemini 3 Pro
           </div>
         </div>
 
@@ -238,6 +316,88 @@ export default function FlatProductShot() {
           )}
         </div>
       </div>
+
+      {/* Results Panel */}
+      {results.length > 0 && (
+        <div className={styles.resultsPanel}>
+          <div className={styles.resultsPanelHeader}>
+            <div className={styles.resultsPanelTitle}>Results</div>
+            {approvedResults.length > 0 && (
+              <span className={styles.approvedCount}>{approvedResults.length} approved</span>
+            )}
+          </div>
+          <div className={styles.resultsList}>
+            {activeResults.map((image) => (
+              <div key={image.fileId} className={`${styles.resultCard} ${image.status === 'approved' ? styles.resultApproved : ''}`}>
+                <div className={styles.resultImgWrap}>
+                  <img
+                    src={image.imageUrl}
+                    alt={image.fileName}
+                    className={styles.resultImg}
+                    crossOrigin="anonymous"
+                  />
+                  {image.status === 'approved' && (
+                    <div className={styles.approvedBadge}>✓ Approved</div>
+                  )}
+                </div>
+                <div className={styles.resultMeta}>
+                  <div className={styles.resultFileName}>{image.fileName}</div>
+                  <div className={styles.resultActions}>
+                    {image.status === 'pending' && (
+                      <>
+                        <button className={styles.approveBtn} onClick={() => handleApprove(image.fileId)}>
+                          Approve
+                        </button>
+                        <button className={styles.refineBtn} onClick={() => toggleRefine(image.fileId)}>
+                          Refine
+                        </button>
+                        <button className={styles.rejectBtn} onClick={() => handleReject(image.fileId)}>
+                          Reject
+                        </button>
+                      </>
+                    )}
+                    {image.status === 'approved' && (
+                      <>
+                        <a
+                          href={image.viewUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={styles.downloadBtn}
+                        >
+                          Download
+                        </a>
+                        <button className={styles.refineBtn} onClick={() => toggleRefine(image.fileId)}>
+                          Refine
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  {image.showRefine && (
+                    <div className={styles.refineBox}>
+                      <textarea
+                        className={styles.refineTextarea}
+                        placeholder="Describe what to change..."
+                        value={image.refineText || ''}
+                        onChange={e => handleRefineTextChange(image.fileId, e.target.value)}
+                        rows={2}
+                      />
+                      <button
+                        className={styles.refineSubmitBtn}
+                        onClick={() => handleRefineSubmit(image)}
+                        disabled={!image.refineText || refineSubmitting === image.fileId}
+                      >
+                        {refineSubmitting === image.fileId ? (
+                          <><span className={styles.spinner} /> Refining...</>
+                        ) : 'Submit refinement'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Resizable divider */}
       <div className={styles.resizeDivider} onMouseDown={handleMouseDown}>
