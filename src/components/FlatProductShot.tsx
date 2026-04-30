@@ -12,7 +12,9 @@ interface GarmentImage {
 interface GeneratedImage {
   index: number
   fileId: string
-  viewUrl: string
+  gcsUrl?: string
+  gcsFileName?: string
+  viewUrl?: string
   imageUrl: string
   fileName: string
   status: 'pending' | 'approved' | 'rejected'
@@ -112,6 +114,18 @@ export default function FlatProductShot() {
 
   const filledCount = garments.filter(Boolean).length
 
+  const mapImage = (img: GeneratedImage, i: number, originalGarments: (GarmentImage | null)[], shotStyleLabel: string): GeneratedImage => ({
+    ...img,
+    imageUrl: img.gcsUrl || img.imageUrl,
+    fileId: img.gcsFileName || img.fileId || `image_${i}_${Date.now()}`,
+    fileName: img.gcsFileName || img.fileName,
+    status: 'pending' as const,
+    showRefine: false,
+    refineText: '',
+    originalFile: originalGarments[i]?.file,
+    shotStyle: shotStyleLabel,
+  })
+
   const handleSubmit = async () => {
     if (filledCount === 0) return
     setSubmitting(true)
@@ -137,14 +151,10 @@ export default function FlatProductShot() {
       if (response.ok) {
         const data = await response.json()
         const responseData = Array.isArray(data) ? data[0] : data
-        const images: GeneratedImage[] = (responseData.images || []).map((img: GeneratedImage, i: number) => ({
-          ...img,
-          status: 'pending' as const,
-          showRefine: false,
-          refineText: '',
-          originalFile: garments[i]?.file,
-          shotStyle: shotStyle === 'flat_lay' ? 'Flat Lay' : 'Ghost Mannequin',
-        }))
+        const shotStyleLabel = shotStyle === 'flat_lay' ? 'Flat Lay' : 'Ghost Mannequin'
+        const images: GeneratedImage[] = (responseData.images || []).map((img: GeneratedImage, i: number) =>
+          mapImage(img, i, garments, shotStyleLabel)
+        )
         setResults(prev => [...images, ...prev])
         setJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: 'done', images } : j))
       } else {
@@ -187,8 +197,11 @@ export default function FlatProductShot() {
       if (response.ok) {
         const data = await response.json()
         const responseData = Array.isArray(data) ? data[0] : data
-        const newImages: GeneratedImage[] = (responseData.images || []).map((img: GeneratedImage) => ({
+        const newImages: GeneratedImage[] = (responseData.images || []).map((img: GeneratedImage, i: number) => ({
           ...img,
+          imageUrl: img.gcsUrl || img.imageUrl,
+          fileId: img.gcsFileName || img.fileId || `image_${i}_${Date.now()}`,
+          fileName: img.gcsFileName || img.fileName,
           status: 'pending' as const,
           showRefine: false,
           refineText: '',
@@ -196,7 +209,6 @@ export default function FlatProductShot() {
           shotStyle: image.shotStyle,
         }))
         setResults(prev => [...newImages, ...prev])
-        // Mark original as rejected after refinement
         setResults(prev => prev.map(img => img.fileId === image.fileId ? { ...img, status: 'rejected', showRefine: false } : img))
       }
     } catch {
@@ -359,7 +371,7 @@ export default function FlatProductShot() {
                     {image.status === 'approved' && (
                       <>
                         <a
-                          href={image.viewUrl}
+                          href={image.imageUrl}
                           target="_blank"
                           rel="noopener noreferrer"
                           className={styles.downloadBtn}
