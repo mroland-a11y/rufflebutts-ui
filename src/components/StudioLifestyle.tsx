@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import styles from './StudioLifestyle.module.css'
 
 const N8N_WEBHOOK = process.env.NEXT_PUBLIC_N8N_STUDIO_WEBHOOK || ''
@@ -70,6 +70,9 @@ const DIMENSION_PRESETS = [
 
 const DEFAULT_PERSONALITY = 'smiling, laughing, standing, sitting, arms naturally posed'
 
+const MIN_FORM = 380
+const MIN_RESULTS = 260
+
 function makeGarment(): Garment {
   return { image: null, type: '', instructions: '' }
 }
@@ -102,8 +105,8 @@ function modelSummary(m: Model): string {
 export default function StudioLifestyle() {
   // Output
   const [dimensionPreset, setDimensionPreset] = useState(DIMENSION_PRESETS[0].label)
-  const [customWidth, setCustomWidth] = useState('')
-  const [customHeight, setCustomHeight] = useState('')
+  const [customWidth, setCustomWidth] = useState('1800')
+  const [customHeight, setCustomHeight] = useState('2400')
   const [shotType, setShotType] = useState('Full body')
   const [modelPosition, setModelPosition] = useState('Center')
 
@@ -133,24 +136,68 @@ export default function StudioLifestyle() {
   const [results, setResults] = useState<GeneratedImage[]>([])
   const [refineSubmitting, setRefineSubmitting] = useState<string | null>(null)
 
+  // Resizable panel
+  const [resultsWidth, setResultsWidth] = useState(0)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const isDragging = useRef(false)
+  const dragStartX = useRef(0)
+  const dragStartWidth = useRef(0)
+
+  // Set initial results width to 40% on mount
+  useEffect(() => {
+    if (containerRef.current) {
+      setResultsWidth(Math.round(containerRef.current.offsetWidth * 0.4))
+    }
+  }, [])
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    isDragging.current = true
+    dragStartX.current = e.clientX
+    dragStartWidth.current = resultsWidth
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }, [resultsWidth])
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging.current || !containerRef.current) return
+      const delta = dragStartX.current - e.clientX
+      const containerWidth = containerRef.current.offsetWidth
+      const newResultsWidth = Math.min(
+        containerWidth - MIN_FORM - 6,
+        Math.max(MIN_RESULTS, dragStartWidth.current + delta)
+      )
+      const formWidth = containerWidth - newResultsWidth - 6
+      if (formWidth >= MIN_FORM) {
+        setResultsWidth(newResultsWidth)
+      }
+    }
+    const handleMouseUp = () => {
+      if (!isDragging.current) return
+      isDragging.current = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [])
+
+  // File input refs
   const referenceInputRef = useRef<HTMLInputElement>(null)
-  const garmentInputRefs = useRef<(HTMLInputElement | null)[][][]>([])
+  const garmentInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({})
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
 
-  const getOrCreateGarmentRef = (modelIdx: number, garmentIdx: number) => {
-    if (!garmentInputRefs.current[modelIdx]) garmentInputRefs.current[modelIdx] = []
-    if (!garmentInputRefs.current[modelIdx][garmentIdx]) garmentInputRefs.current[modelIdx][garmentIdx] = []
-    return garmentInputRefs.current[modelIdx][garmentIdx]
-  }
-
-  const updateModel = (id: string, updates: Partial<Model>) => {
+  const updateModel = (id: string, updates: Partial<Model>) =>
     setModels(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m))
-  }
 
-  const toggleModel = (id: string) => {
+  const toggleModel = (id: string) =>
     setModels(prev => prev.map(m => m.id === id ? { ...m, expanded: !m.expanded } : m))
-  }
 
   const addModel = () => {
     if (models.length >= 6) return
@@ -223,30 +270,21 @@ export default function StudioLifestyle() {
     setSubmitting(true)
 
     const formData = new FormData()
-
-    // Output
     formData.append('Shot Type', shotType)
     formData.append('Model Position', modelPosition)
     formData.append('Output Width', customWidth)
     formData.append('Output Height', customHeight)
-
-    // Scene
     formData.append('Scene Type', sceneType)
     formData.append('Background Color', sceneType === 'Studio' ? bgColor : '')
     formData.append('Scene Direction', sceneDirection)
     formData.append('Time Of Day', timeOfDay)
     formData.append('Season Theme', seasonTheme)
-    if (referenceImage) formData.append('Reference_Image', referenceImage.file)
-
-    // Lighting
     formData.append('Lighting Preset', lightingPreset)
     formData.append('Lighting Instructions', lightingInstructions)
-
-    // Scene set
     formData.append('Scene Set', sceneSet)
-
-    // Models
     formData.append('Model Count', String(models.length))
+    if (referenceImage) formData.append('Reference_Image', referenceImage.file)
+
     models.forEach((m, mi) => {
       const prefix = `Model_${mi + 1}`
       formData.append(`${prefix}_Age`, m.age)
@@ -267,13 +305,12 @@ export default function StudioLifestyle() {
     })
 
     const jobId = Date.now().toString()
-    const newJob: Job = {
+    setJobs(prev => [{
       id: jobId,
       models: models.length,
       status: 'processing',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    }
-    setJobs(prev => [newJob, ...prev])
+    }, ...prev])
 
     try {
       const response = await fetch(N8N_WEBHOOK, { method: 'POST', body: formData })
@@ -353,458 +390,397 @@ export default function StudioLifestyle() {
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className={styles.layout}>
+    <div className={styles.layout} ref={containerRef}>
 
-      {/* Topbar */}
-      <div className={styles.topbar}>
-        <div>
-          <div className={styles.title}>Studio &amp; Lifestyle shots</div>
-          <div className={styles.subtitle}>AI-rendered models in studio or location scenes — up to 6 models per run</div>
+      {/* ── Left: Form panel ── */}
+      <div className={styles.formPanel}>
+
+        <div className={styles.topbar}>
+          <div>
+            <div className={styles.title}>Studio &amp; Lifestyle shots</div>
+            <div className={styles.subtitle}>AI-rendered models in studio or location scenes — up to 6 models per run</div>
+          </div>
+          <div className={styles.modelBadge}>
+            <span className={styles.statusDot} />
+            Gemini 3 Pro
+          </div>
         </div>
-        <div className={styles.modelBadge}>
-          <span className={styles.statusDot} />
-          Gemini 3 Pro
-        </div>
-      </div>
 
-      {/* Scrollable body */}
-      <div className={styles.body}>
+        <div className={styles.body}>
 
-        {/* ── Section 1: Output ── */}
-        <section className={styles.section}>
-          <div className={styles.sectionLabel}>Output</div>
-
-          <div className={styles.twoCol} style={{ marginBottom: 12 }}>
-            <div className={styles.fieldGroup}>
-              <div className={styles.fieldLabel}>Dimensions</div>
-              <select
-                value={dimensionPreset}
-                onChange={e => handleDimensionPreset(e.target.value)}
-              >
-                {DIMENSION_PRESETS.map(p => (
-                  <option key={p.label} value={p.label}>{p.label}</option>
-                ))}
-              </select>
-            </div>
-            {dimensionPreset === 'Custom' && (
+          {/* Output */}
+          <section className={styles.section}>
+            <div className={styles.sectionLabel}>Output</div>
+            <div className={styles.twoCol} style={{ marginBottom: 10 }}>
               <div className={styles.fieldGroup}>
-                <div className={styles.fieldLabel}>Custom size (px)</div>
-                <div className={styles.twoCol}>
-                  <input
-                    type="number"
-                    placeholder="Width"
-                    value={customWidth}
-                    onChange={e => setCustomWidth(e.target.value)}
-                  />
-                  <input
-                    type="number"
-                    placeholder="Height"
-                    value={customHeight}
-                    onChange={e => setCustomHeight(e.target.value)}
-                  />
-                </div>
+                <div className={styles.fieldLabel}>Dimensions</div>
+                <select value={dimensionPreset} onChange={e => handleDimensionPreset(e.target.value)}>
+                  {DIMENSION_PRESETS.map(p => <option key={p.label} value={p.label}>{p.label}</option>)}
+                </select>
               </div>
-            )}
-          </div>
-
-          <div className={styles.twoCol}>
-            <div className={styles.fieldGroup}>
-              <div className={styles.fieldLabel}>Shot type</div>
-              <select value={shotType} onChange={e => setShotType(e.target.value)}>
-                {SHOT_TYPE_OPTIONS.map(o => <option key={o}>{o}</option>)}
-              </select>
-            </div>
-            <div className={styles.fieldGroup}>
-              <div className={styles.fieldLabel}>Model position on canvas</div>
-              <div className={styles.positionRow}>
-                {POSITION_OPTIONS.map(pos => (
-                  <button
-                    key={pos}
-                    className={`${styles.positionBtn} ${modelPosition === pos ? styles.selected : ''}`}
-                    onClick={() => setModelPosition(pos)}
-                  >
-                    {pos}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <div className={styles.sectionDivider} />
-
-        {/* ── Section 2: Scene ── */}
-        <section className={styles.section}>
-          <div className={styles.sectionLabel}>Scene</div>
-
-          <div style={{ marginBottom: 12 }}>
-            <div className={styles.toggleRow}>
-              {(['Studio', 'Lifestyle'] as const).map(t => (
-                <button
-                  key={t}
-                  className={`${styles.toggleBtn} ${sceneType === t ? styles.selected : ''}`}
-                  onClick={() => setSceneType(t)}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {sceneType === 'Studio' && (
-            <div className={styles.fieldGroup} style={{ marginBottom: 12 }}>
-              <div className={styles.fieldLabel}>Background color</div>
-              <div className={styles.colorRow}>
-                <div className={styles.colorSwatch}>
-                  <input
-                    type="color"
-                    value={bgColor}
-                    onChange={e => handleBgColorChange(e.target.value)}
-                  />
-                </div>
-                <input
-                  className={styles.colorHex}
-                  type="text"
-                  value={bgColorHex}
-                  onChange={e => handleBgHexInput(e.target.value)}
-                  placeholder="#FFFFFF"
-                  maxLength={7}
-                />
-              </div>
-            </div>
-          )}
-
-          <div className={styles.fieldGroup} style={{ marginBottom: 12 }}>
-            <div className={styles.fieldLabel}>Scene &amp; shot direction</div>
-            <textarea
-              className={styles.textarea}
-              placeholder="e.g. Models on beach with backs to the water, slightly blurred background, portrait mode"
-              value={sceneDirection}
-              onChange={e => setSceneDirection(e.target.value)}
-              rows={3}
-            />
-          </div>
-
-          <div className={styles.twoCol} style={{ marginBottom: 12 }}>
-            <div className={styles.fieldGroup}>
-              <div className={styles.fieldLabel}>Time of day</div>
-              <select value={timeOfDay} onChange={e => setTimeOfDay(e.target.value)}>
-                {TIME_OF_DAY_OPTIONS.map(o => <option key={o}>{o}</option>)}
-              </select>
-            </div>
-            <div className={styles.fieldGroup}>
-              <div className={styles.fieldLabel}>Season / theme <span className={styles.optional}>(optional)</span></div>
-              <input
-                type="text"
-                placeholder="e.g. summer, 4th of July, Christmas"
-                value={seasonTheme}
-                onChange={e => setSeasonTheme(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className={styles.fieldGroup}>
-            <div className={styles.fieldLabel}>Reference image <span className={styles.optional}>(optional)</span></div>
-            <input
-              ref={referenceInputRef}
-              type="file"
-              accept="image/*"
-              style={{ display: 'none' }}
-              onChange={e => e.target.files?.[0] && handleReferenceFile(e.target.files[0])}
-            />
-            {referenceImage ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <img
-                  src={referenceImage.preview}
-                  alt="Reference"
-                  style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6, border: '0.5px solid var(--border)' }}
-                />
-                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{referenceImage.file.name}</span>
-                <button
-                  onClick={() => { URL.revokeObjectURL(referenceImage.preview); setReferenceImage(null) }}
-                  style={{ background: 'none', border: 'none', color: 'var(--danger)', fontSize: 16, cursor: 'pointer', marginLeft: 'auto' }}
-                >✕</button>
-              </div>
-            ) : (
-              <button className={styles.uploadEmpty} style={{ height: 48, borderRadius: 8 }} onClick={() => referenceInputRef.current?.click()}>
-                <span className={styles.uploadPlus}>+</span>
-                <span className={styles.uploadLabel}>Upload reference image</span>
-              </button>
-            )}
-          </div>
-        </section>
-
-        <div className={styles.sectionDivider} />
-
-        {/* ── Section 3: Lighting ── */}
-        <section className={styles.section}>
-          <div className={styles.sectionLabel}>Lighting</div>
-
-          <div className={styles.fieldGroup} style={{ marginBottom: 12 }}>
-            <div className={styles.fieldLabel}>Preset</div>
-            <div className={styles.threeCol} style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
-              {LIGHTING_OPTIONS.map(opt => (
-                <button
-                  key={opt}
-                  className={`${styles.positionBtn} ${lightingPreset === opt ? styles.selected : ''}`}
-                  onClick={() => setLightingPreset(opt)}
-                  style={{ fontSize: 11 }}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className={styles.fieldGroup}>
-            <div className={styles.fieldLabel}>Custom lighting instructions <span className={styles.optional}>(optional)</span></div>
-            <input
-              type="text"
-              placeholder="e.g. Soft rim light from the left, warm fill"
-              value={lightingInstructions}
-              onChange={e => setLightingInstructions(e.target.value)}
-            />
-          </div>
-        </section>
-
-        <div className={styles.sectionDivider} />
-
-        {/* ── Section 4: Models ── */}
-        <section className={styles.modelsSection}>
-          <div className={styles.sectionLabel}>
-            Models
-            <span style={{ color: 'var(--accent)', fontSize: 10 }}>{models.length}/6</span>
-          </div>
-
-          {models.map((model, modelIdx) => (
-            <div key={model.id} className={styles.modelCard}>
-              {/* Card header */}
-              <div className={styles.modelCardHeader} onClick={() => toggleModel(model.id)}>
-                <div className={styles.modelCardHeaderLeft}>
-                  <div className={styles.modelCardNumber}>{modelIdx + 1}</div>
-                  <div>
-                    <div className={styles.modelCardTitle}>Model {modelIdx + 1}</div>
-                    {!model.expanded && (
-                      <div className={styles.modelCardSummary}>{modelSummary(model)}</div>
-                    )}
-                  </div>
-                </div>
-                <div className={`${styles.modelCardToggle} ${model.expanded ? styles.open : ''}`}>+</div>
-              </div>
-
-              {/* Card body */}
-              {model.expanded && (
-                <div className={styles.modelCardBody}>
-
-                  {/* Row 1: Age, Sex, Race */}
-                  <div className={styles.threeCol}>
-                    <div className={styles.fieldGroup}>
-                      <div className={styles.fieldLabel}>Age</div>
-                      <select value={model.age} onChange={e => updateModel(model.id, { age: e.target.value })}>
-                        <option value="">Select age</option>
-                        {AGE_OPTIONS.map(o => <option key={o}>{o}</option>)}
-                      </select>
-                    </div>
-                    <div className={styles.fieldGroup}>
-                      <div className={styles.fieldLabel}>Sex</div>
-                      <select value={model.sex} onChange={e => updateModel(model.id, { sex: e.target.value })}>
-                        <option value="">Select sex</option>
-                        {SEX_OPTIONS.map(o => <option key={o}>{o}</option>)}
-                      </select>
-                    </div>
-                    <div className={styles.fieldGroup}>
-                      <div className={styles.fieldLabel}>Race</div>
-                      <select value={model.race} onChange={e => updateModel(model.id, { race: e.target.value })}>
-                        <option value="">Select race</option>
-                        {RACE_OPTIONS.map(o => <option key={o}>{o}</option>)}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Row 2: Hair color, Hair length, Body type */}
-                  <div className={styles.threeCol}>
-                    <div className={styles.fieldGroup}>
-                      <div className={styles.fieldLabel}>Hair color</div>
-                      <input
-                        type="text"
-                        placeholder="e.g. Blonde, Dark brown"
-                        value={model.hairColor}
-                        onChange={e => updateModel(model.id, { hairColor: e.target.value })}
-                      />
-                    </div>
-                    <div className={styles.fieldGroup}>
-                      <div className={styles.fieldLabel}>Hair length</div>
-                      <select value={model.hairLength} onChange={e => updateModel(model.id, { hairLength: e.target.value })}>
-                        <option value="">Select length</option>
-                        {HAIR_LENGTH_OPTIONS.map(o => <option key={o}>{o}</option>)}
-                      </select>
-                    </div>
-                    <div className={styles.fieldGroup}>
-                      <div className={styles.fieldLabel}>Body type</div>
-                      <input
-                        type="text"
-                        placeholder="e.g. Slim, Athletic"
-                        value={model.bodyType}
-                        onChange={e => updateModel(model.id, { bodyType: e.target.value })}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Row 3: Personality, Pose direction */}
+              {dimensionPreset === 'Custom' && (
+                <div className={styles.fieldGroup}>
+                  <div className={styles.fieldLabel}>Custom size (px)</div>
                   <div className={styles.twoCol}>
-                    <div className={styles.fieldGroup}>
-                      <div className={styles.fieldLabel}>Personality / pose</div>
-                      <input
-                        type="text"
-                        value={model.personality}
-                        onChange={e => updateModel(model.id, { personality: e.target.value })}
-                      />
-                    </div>
-                    <div className={styles.fieldGroup}>
-                      <div className={styles.fieldLabel}>Custom pose direction <span className={styles.optional}>(optional)</span></div>
-                      <input
-                        type="text"
-                        placeholder="e.g. Hand on hips"
-                        value={model.poseDirection}
-                        onChange={e => updateModel(model.id, { poseDirection: e.target.value })}
-                      />
-                    </div>
+                    <input type="number" placeholder="Width" value={customWidth} onChange={e => setCustomWidth(e.target.value)} />
+                    <input type="number" placeholder="Height" value={customHeight} onChange={e => setCustomHeight(e.target.value)} />
                   </div>
-
-                  {/* Garments */}
-                  <div>
-                    <div className={styles.fieldLabel} style={{ marginBottom: 8 }}>Garments</div>
-                    <div className={styles.garmentGrid}>
-                      {model.garments.map((garment, gi) => {
-                        const inputRef = (el: HTMLInputElement | null) => {
-                          if (!garmentInputRefs.current[modelIdx]) garmentInputRefs.current[modelIdx] = []
-                          if (!garmentInputRefs.current[modelIdx][gi]) garmentInputRefs.current[modelIdx][gi] = []
-                          garmentInputRefs.current[modelIdx][gi] = [el]
-                        }
-                        return (
-                          <div key={gi} className={styles.garmentCell}>
-                            <input
-                              ref={inputRef}
-                              type="file"
-                              accept="image/*"
-                              style={{ display: 'none' }}
-                              onChange={e => e.target.files?.[0] && handleGarmentFile(model.id, gi, e.target.files[0])}
-                            />
-                            {garment.image ? (
-                              <div
-                                className={styles.uploadFilled}
-                                onClick={() => removeGarment(model.id, gi)}
-                              >
-                                <img src={garment.image.preview} alt="" className={styles.uploadThumb} />
-                                <div className={styles.uploadOverlay}>
-                                  <span className={styles.removeX}>✕</span>
-                                </div>
-                              </div>
-                            ) : (
-                              <button
-                                className={styles.uploadEmpty}
-                                onClick={() => garmentInputRefs.current[modelIdx]?.[gi]?.[0]?.click()}
-                              >
-                                <span className={styles.uploadPlus}>+</span>
-                                <span className={styles.uploadLabel}>G{gi + 1}</span>
-                              </button>
-                            )}
-                            <select
-                              className={styles.garmentTypeSelect}
-                              value={garment.type}
-                              onChange={e => updateGarment(model.id, gi, { type: e.target.value })}
-                            >
-                              <option value="">Type</option>
-                              {GARMENT_TYPE_OPTIONS.map(o => <option key={o}>{o}</option>)}
-                            </select>
-                            <textarea
-                              className={styles.garmentInstructions}
-                              placeholder="Instructions"
-                              value={garment.instructions}
-                              onChange={e => updateGarment(model.id, gi, { instructions: e.target.value })}
-                              rows={2}
-                            />
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Remove model */}
-                  {models.length > 1 && (
-                    <button className={styles.modelCardRemove} onClick={() => removeModel(model.id)}>
-                      Remove model
-                    </button>
-                  )}
                 </div>
               )}
             </div>
-          ))}
-
-          {models.length < 6 && (
-            <button className={styles.addModelBtn} onClick={addModel}>
-              + Add model
-            </button>
-          )}
-        </section>
-
-        <div className={styles.sectionDivider} />
-
-        {/* ── Scene Set + Submit ── */}
-        <section className={styles.submitSection}>
-          <div className={styles.fieldGroup} style={{ marginBottom: 16 }}>
-            <div className={styles.sectionLabel}>Scene set <span className={styles.optional}>(optional)</span></div>
-            <textarea
-              className={styles.textarea}
-              placeholder="e.g. Model 1 throwing a ball to Model 2"
-              value={sceneSet}
-              onChange={e => setSceneSet(e.target.value)}
-              rows={2}
-            />
-          </div>
-
-          <button
-            className={styles.submitBtn}
-            onClick={handleSubmit}
-            disabled={totalGarments === 0 || submitting}
-          >
-            {submitting ? (
-              <><span className={styles.spinner} /> Generating...</>
-            ) : (
-              `Generate — ${models.length} model${models.length !== 1 ? 's' : ''}, ${totalGarments} garment${totalGarments !== 1 ? 's' : ''}`
-            )}
-          </button>
-
-          {jobs.length > 0 && (
-            <div style={{ marginTop: 24 }}>
-              <div className={styles.sectionLabel}>Recent jobs</div>
-              {jobs.slice(0, 5).map(job => (
-                <div key={job.id} className={styles.jobCard}>
-                  <div className={styles.jobTop}>
-                    <span className={styles.jobName}>
-                      Studio &amp; Lifestyle — {job.models} model{job.models !== 1 ? 's' : ''}
-                    </span>
-                    <span className={`${styles.jobStatus} ${styles[job.status]}`}>
-                      {job.status === 'processing' ? 'Processing' : job.status === 'done' ? 'Done' : 'Error'}
-                    </span>
-                  </div>
-                  <div className={styles.jobTime}>Today, {job.time}</div>
+            <div className={styles.twoCol}>
+              <div className={styles.fieldGroup}>
+                <div className={styles.fieldLabel}>Shot type</div>
+                <select value={shotType} onChange={e => setShotType(e.target.value)}>
+                  {SHOT_TYPE_OPTIONS.map(o => <option key={o}>{o}</option>)}
+                </select>
+              </div>
+              <div className={styles.fieldGroup}>
+                <div className={styles.fieldLabel}>Model position on canvas</div>
+                <div className={styles.positionRow}>
+                  {POSITION_OPTIONS.map(pos => (
+                    <button
+                      key={pos}
+                      className={`${styles.positionBtn} ${modelPosition === pos ? styles.selected : ''}`}
+                      onClick={() => setModelPosition(pos)}
+                    >{pos}</button>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
-          )}
-        </section>
+          </section>
+
+          <div className={styles.sectionDivider} />
+
+          {/* Scene */}
+          <section className={styles.section}>
+            <div className={styles.sectionLabel}>Scene</div>
+            <div style={{ marginBottom: 10 }}>
+              <div className={styles.toggleRow}>
+                {(['Studio', 'Lifestyle'] as const).map(t => (
+                  <button
+                    key={t}
+                    className={`${styles.toggleBtn} ${sceneType === t ? styles.selected : ''}`}
+                    onClick={() => setSceneType(t)}
+                  >{t}</button>
+                ))}
+              </div>
+            </div>
+            {sceneType === 'Studio' && (
+              <div className={styles.fieldGroup} style={{ marginBottom: 10 }}>
+                <div className={styles.fieldLabel}>Background color</div>
+                <div className={styles.colorRow}>
+                  <div className={styles.colorSwatch}>
+                    <input type="color" value={bgColor} onChange={e => handleBgColorChange(e.target.value)} />
+                  </div>
+                  <input
+                    className={styles.colorHex}
+                    type="text"
+                    value={bgColorHex}
+                    onChange={e => handleBgHexInput(e.target.value)}
+                    placeholder="#FFFFFF"
+                    maxLength={7}
+                  />
+                </div>
+              </div>
+            )}
+            <div className={styles.fieldGroup} style={{ marginBottom: 10 }}>
+              <div className={styles.fieldLabel}>Scene &amp; shot direction</div>
+              <textarea
+                className={styles.textarea}
+                placeholder="e.g. Models on beach with backs to the water, slightly blurred background, portrait mode"
+                value={sceneDirection}
+                onChange={e => setSceneDirection(e.target.value)}
+                rows={3}
+              />
+            </div>
+            <div className={styles.twoCol} style={{ marginBottom: 10 }}>
+              <div className={styles.fieldGroup}>
+                <div className={styles.fieldLabel}>Time of day</div>
+                <select value={timeOfDay} onChange={e => setTimeOfDay(e.target.value)}>
+                  {TIME_OF_DAY_OPTIONS.map(o => <option key={o}>{o}</option>)}
+                </select>
+              </div>
+              <div className={styles.fieldGroup}>
+                <div className={styles.fieldLabel}>Season / theme <span className={styles.optional}>(optional)</span></div>
+                <input
+                  type="text"
+                  placeholder="e.g. summer, 4th of July, Christmas"
+                  value={seasonTheme}
+                  onChange={e => setSeasonTheme(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className={styles.fieldGroup}>
+              <div className={styles.fieldLabel}>Reference image <span className={styles.optional}>(optional)</span></div>
+              <input
+                ref={referenceInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={e => e.target.files?.[0] && handleReferenceFile(e.target.files[0])}
+              />
+              {referenceImage ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <img src={referenceImage.preview} alt="Reference" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 5, border: '0.5px solid var(--border)' }} />
+                  <span style={{ fontSize: 11, color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{referenceImage.file.name}</span>
+                  <button onClick={() => { URL.revokeObjectURL(referenceImage.preview); setReferenceImage(null) }} style={{ background: 'none', border: 'none', color: 'var(--danger)', fontSize: 14, cursor: 'pointer' }}>✕</button>
+                </div>
+              ) : (
+                <button className={styles.uploadEmpty} style={{ height: 40, borderRadius: 6, aspectRatio: 'unset' }} onClick={() => referenceInputRef.current?.click()}>
+                  <span className={styles.uploadPlus}>+</span>
+                  <span className={styles.uploadLabel}>Upload reference image</span>
+                </button>
+              )}
+            </div>
+          </section>
+
+          <div className={styles.sectionDivider} />
+
+          {/* Lighting */}
+          <section className={styles.section}>
+            <div className={styles.sectionLabel}>Lighting</div>
+            <div className={styles.fieldGroup} style={{ marginBottom: 10 }}>
+              <div className={styles.fieldLabel}>Preset</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
+                {LIGHTING_OPTIONS.map(opt => (
+                  <button
+                    key={opt}
+                    className={`${styles.positionBtn} ${lightingPreset === opt ? styles.selected : ''}`}
+                    onClick={() => setLightingPreset(opt)}
+                    style={{ fontSize: 10 }}
+                  >{opt}</button>
+                ))}
+              </div>
+            </div>
+            <div className={styles.fieldGroup}>
+              <div className={styles.fieldLabel}>Custom lighting instructions <span className={styles.optional}>(optional)</span></div>
+              <input
+                type="text"
+                placeholder="e.g. Soft rim light from the left, warm fill"
+                value={lightingInstructions}
+                onChange={e => setLightingInstructions(e.target.value)}
+              />
+            </div>
+          </section>
+
+          <div className={styles.sectionDivider} />
+
+          {/* Models */}
+          <section className={styles.modelsSection}>
+            <div className={styles.sectionLabel}>
+              Models
+              <span style={{ color: 'var(--accent)', fontSize: 10 }}>{models.length}/6</span>
+            </div>
+
+            {models.map((model, modelIdx) => (
+              <div key={model.id} className={styles.modelCard}>
+                <div className={styles.modelCardHeader} onClick={() => toggleModel(model.id)}>
+                  <div className={styles.modelCardHeaderLeft}>
+                    <div className={styles.modelCardNumber}>{modelIdx + 1}</div>
+                    <div>
+                      <div className={styles.modelCardTitle}>Model {modelIdx + 1}</div>
+                      {!model.expanded && (
+                        <div className={styles.modelCardSummary}>{modelSummary(model)}</div>
+                      )}
+                    </div>
+                  </div>
+                  <div className={`${styles.modelCardToggle} ${model.expanded ? styles.open : ''}`}>+</div>
+                </div>
+
+                {model.expanded && (
+                  <div className={styles.modelCardBody}>
+                    <div className={styles.threeCol}>
+                      <div className={styles.fieldGroup}>
+                        <div className={styles.fieldLabel}>Age</div>
+                        <select value={model.age} onChange={e => updateModel(model.id, { age: e.target.value })}>
+                          <option value="">Select</option>
+                          {AGE_OPTIONS.map(o => <option key={o}>{o}</option>)}
+                        </select>
+                      </div>
+                      <div className={styles.fieldGroup}>
+                        <div className={styles.fieldLabel}>Sex</div>
+                        <select value={model.sex} onChange={e => updateModel(model.id, { sex: e.target.value })}>
+                          <option value="">Select</option>
+                          {SEX_OPTIONS.map(o => <option key={o}>{o}</option>)}
+                        </select>
+                      </div>
+                      <div className={styles.fieldGroup}>
+                        <div className={styles.fieldLabel}>Race</div>
+                        <select value={model.race} onChange={e => updateModel(model.id, { race: e.target.value })}>
+                          <option value="">Select</option>
+                          {RACE_OPTIONS.map(o => <option key={o}>{o}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className={styles.threeCol}>
+                      <div className={styles.fieldGroup}>
+                        <div className={styles.fieldLabel}>Hair color</div>
+                        <input type="text" placeholder="e.g. Blonde" value={model.hairColor} onChange={e => updateModel(model.id, { hairColor: e.target.value })} />
+                      </div>
+                      <div className={styles.fieldGroup}>
+                        <div className={styles.fieldLabel}>Hair length</div>
+                        <select value={model.hairLength} onChange={e => updateModel(model.id, { hairLength: e.target.value })}>
+                          <option value="">Select</option>
+                          {HAIR_LENGTH_OPTIONS.map(o => <option key={o}>{o}</option>)}
+                        </select>
+                      </div>
+                      <div className={styles.fieldGroup}>
+                        <div className={styles.fieldLabel}>Body type</div>
+                        <input type="text" placeholder="e.g. Slim" value={model.bodyType} onChange={e => updateModel(model.id, { bodyType: e.target.value })} />
+                      </div>
+                    </div>
+
+                    <div className={styles.twoCol}>
+                      <div className={styles.fieldGroup}>
+                        <div className={styles.fieldLabel}>Personality / pose</div>
+                        <input type="text" value={model.personality} onChange={e => updateModel(model.id, { personality: e.target.value })} />
+                      </div>
+                      <div className={styles.fieldGroup}>
+                        <div className={styles.fieldLabel}>Custom pose direction <span className={styles.optional}>(optional)</span></div>
+                        <input type="text" placeholder="e.g. Hand on hips" value={model.poseDirection} onChange={e => updateModel(model.id, { poseDirection: e.target.value })} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className={styles.fieldLabel} style={{ marginBottom: 6 }}>Garments</div>
+                      <div className={styles.garmentGrid}>
+                        {model.garments.map((garment, gi) => {
+                          const refKey = `${model.id}-${gi}`
+                          return (
+                            <div key={gi} className={styles.garmentCell}>
+                              <input
+                                ref={el => { garmentInputRefs.current[refKey] = el }}
+                                type="file"
+                                accept="image/*"
+                                style={{ display: 'none' }}
+                                onChange={e => e.target.files?.[0] && handleGarmentFile(model.id, gi, e.target.files[0])}
+                              />
+                              {garment.image ? (
+                                <div className={styles.uploadFilled} onClick={() => removeGarment(model.id, gi)}>
+                                  <img src={garment.image.preview} alt="" className={styles.uploadThumb} />
+                                  <div className={styles.uploadOverlay}>
+                                    <span className={styles.removeX}>✕</span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button className={styles.uploadEmpty} onClick={() => garmentInputRefs.current[refKey]?.click()}>
+                                  <span className={styles.uploadPlus}>+</span>
+                                  <span className={styles.uploadLabel}>G{gi + 1}</span>
+                                </button>
+                              )}
+                              <select
+                                className={styles.garmentTypeSelect}
+                                value={garment.type}
+                                onChange={e => updateGarment(model.id, gi, { type: e.target.value })}
+                              >
+                                <option value="">Type</option>
+                                {GARMENT_TYPE_OPTIONS.map(o => <option key={o}>{o}</option>)}
+                              </select>
+                              <textarea
+                                className={styles.garmentInstructions}
+                                placeholder="Instructions"
+                                value={garment.instructions}
+                                onChange={e => updateGarment(model.id, gi, { instructions: e.target.value })}
+                                rows={2}
+                              />
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {models.length > 1 && (
+                      <button className={styles.modelCardRemove} onClick={() => removeModel(model.id)}>
+                        Remove model
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {models.length < 6 && (
+              <button className={styles.addModelBtn} onClick={addModel}>+ Add model</button>
+            )}
+          </section>
+
+          <div className={styles.sectionDivider} />
+
+          {/* Scene Set + Submit */}
+          <section className={styles.submitSection}>
+            <div className={styles.fieldGroup} style={{ marginBottom: 14 }}>
+              <div className={styles.sectionLabel}>Scene set <span className={styles.optional}>(optional)</span></div>
+              <textarea
+                className={styles.textarea}
+                placeholder="e.g. Model 1 throwing a ball to Model 2"
+                value={sceneSet}
+                onChange={e => setSceneSet(e.target.value)}
+                rows={2}
+              />
+            </div>
+
+            <button
+              className={styles.submitBtn}
+              onClick={handleSubmit}
+              disabled={totalGarments === 0 || submitting}
+            >
+              {submitting ? (
+                <><span className={styles.spinner} /> Generating...</>
+              ) : (
+                `Generate — ${models.length} model${models.length !== 1 ? 's' : ''}, ${totalGarments} garment${totalGarments !== 1 ? 's' : ''}`
+              )}
+            </button>
+
+            {jobs.length > 0 && (
+              <div style={{ marginTop: 20 }}>
+                <div className={styles.sectionLabel}>Recent jobs</div>
+                {jobs.slice(0, 5).map(job => (
+                  <div key={job.id} className={styles.jobCard}>
+                    <div className={styles.jobTop}>
+                      <span className={styles.jobName}>Studio &amp; Lifestyle — {job.models} model{job.models !== 1 ? 's' : ''}</span>
+                      <span className={`${styles.jobStatus} ${styles[job.status]}`}>
+                        {job.status === 'processing' ? 'Processing' : job.status === 'done' ? 'Done' : 'Error'}
+                      </span>
+                    </div>
+                    <div className={styles.jobTime}>Today, {job.time}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+        </div>
       </div>
 
-      {/* ── Results strip ── */}
-      {activeResults.length > 0 && (
-        <div className={styles.resultsPanel}>
-          <div className={styles.resultsPanelHeader}>
-            <div className={styles.resultsPanelTitle}>Results</div>
-            {approvedResults.length > 0 && (
-              <span className={styles.approvedCount}>{approvedResults.length} approved</span>
-            )}
+      {/* ── Resizable divider ── */}
+      <div className={styles.resizeDivider} onMouseDown={handleMouseDown}>
+        <div className={styles.resizeHandle}>
+          <span /><span /><span />
+        </div>
+      </div>
+
+      {/* ── Right: Results panel ── */}
+      <div
+        className={styles.resultsPanel}
+        style={{ width: resultsWidth || '40%', minWidth: MIN_RESULTS }}
+      >
+        <div className={styles.resultsPanelHeader}>
+          <div className={styles.resultsPanelTitle}>Results</div>
+          {approvedResults.length > 0 && (
+            <span className={styles.approvedCount}>{approvedResults.length} approved</span>
+          )}
+        </div>
+
+        {activeResults.length === 0 ? (
+          <div className={styles.resultsEmpty}>
+            <div className={styles.resultsEmptyIcon}>◫</div>
+            <div className={styles.resultsEmptyText}>
+              Results will appear here after you generate
+            </div>
           </div>
+        ) : (
           <div className={styles.resultsList}>
             {activeResults.map(image => (
               <div
@@ -812,12 +788,7 @@ export default function StudioLifestyle() {
                 className={`${styles.resultCard} ${image.status === 'approved' ? styles.resultApproved : ''}`}
               >
                 <div className={styles.resultImgWrap}>
-                  <img
-                    src={image.imageUrl}
-                    alt={image.fileName}
-                    className={styles.resultImg}
-                    crossOrigin="anonymous"
-                  />
+                  <img src={image.imageUrl} alt={image.fileName} className={styles.resultImg} crossOrigin="anonymous" />
                   {image.status === 'approved' && (
                     <div className={styles.approvedBadge}>✓ Approved</div>
                   )}
@@ -834,9 +805,7 @@ export default function StudioLifestyle() {
                     )}
                     {image.status === 'approved' && (
                       <>
-                        <a href={image.imageUrl} target="_blank" rel="noopener noreferrer" className={styles.downloadBtn}>
-                          Download
-                        </a>
+                        <a href={image.imageUrl} target="_blank" rel="noopener noreferrer" className={styles.downloadBtn}>Download</a>
                         <button className={styles.refineBtn} onClick={() => toggleRefine(image.fileId)}>Refine</button>
                       </>
                     )}
@@ -865,8 +834,8 @@ export default function StudioLifestyle() {
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
     </div>
   )
