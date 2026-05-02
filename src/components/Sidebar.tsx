@@ -3,7 +3,7 @@ import styles from './Sidebar.module.css'
 
 const jobTypes = [
   { id: 'flat_product_shot', label: 'Flat product shots', ready: true },
-  { id: 'model_shots', label: 'Model shots', ready: false },
+  { id: 'studio_lifestyle', label: 'Studio & Lifestyle', ready: true },
   { id: 'outfit_builder', label: 'Outfit builder', ready: false },
   { id: 'scene_background', label: 'Scene / background', ready: false },
   { id: 'campaign_assets', label: 'Campaign assets', ready: false },
