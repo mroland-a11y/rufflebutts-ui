@@ -74,7 +74,7 @@ const MIN_FORM = 380
 const MIN_RESULTS = 260
 
 function makeGarment(): Garment {
-  return { image: null, type: '', instructions: '' }
+  return { image: null, type: '', instructions: '', fitReference: null }
 }
 
 function makeModel(id: string): Model {
@@ -143,7 +143,6 @@ export default function StudioLifestyle() {
   const dragStartX = useRef(0)
   const dragStartWidth = useRef(0)
 
-  // Set initial results width to 40% on mount
   useEffect(() => {
     if (containerRef.current) {
       setResultsWidth(Math.round(containerRef.current.offsetWidth * 0.4))
@@ -190,6 +189,7 @@ export default function StudioLifestyle() {
   // File input refs
   const referenceInputRef = useRef<HTMLInputElement>(null)
   const garmentInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({})
+  const fitRefInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({})
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -230,6 +230,21 @@ export default function StudioLifestyle() {
       const garments = [...m.garments]
       if (garments[garmentIdx].image) URL.revokeObjectURL(garments[garmentIdx].image!.preview)
       garments[garmentIdx] = { ...garments[garmentIdx], image: null }
+      return { ...m, garments }
+    }))
+  }
+
+  const handleFitReferenceFile = (modelId: string, garmentIdx: number, file: File) => {
+    const preview = URL.createObjectURL(file)
+    updateGarment(modelId, garmentIdx, { fitReference: { file, preview } })
+  }
+
+  const removeFitReference = (modelId: string, garmentIdx: number) => {
+    setModels(prev => prev.map(m => {
+      if (m.id !== modelId) return m
+      const garments = [...m.garments]
+      if (garments[garmentIdx].fitReference) URL.revokeObjectURL(garments[garmentIdx].fitReference!.preview)
+      garments[garmentIdx] = { ...garments[garmentIdx], fitReference: null }
       return { ...m, garments }
     }))
   }
@@ -283,7 +298,7 @@ export default function StudioLifestyle() {
     formData.append('Lighting Instructions', lightingInstructions)
     formData.append('Scene Set', sceneSet)
     formData.append('Model Count', String(models.length))
-    if (referenceImage) formData.append('Reference_Image', referenceImage.file)
+    if (referenceImage) formData.append('Scene_Reference', referenceImage.file)
 
     models.forEach((m, mi) => {
       const prefix = `Model_${mi + 1}`
@@ -300,6 +315,9 @@ export default function StudioLifestyle() {
           formData.append(`${prefix}_Garment_${gi + 1}`, g.image.file)
           formData.append(`${prefix}_Garment_${gi + 1}_Type`, g.type)
           formData.append(`${prefix}_Garment_${gi + 1}_Instructions`, g.instructions)
+          if (g.fitReference) {
+            formData.append(`${prefix}_Garment_${gi + 1}_Fit_Reference`, g.fitReference.file)
+          }
         }
       })
     })
@@ -512,7 +530,7 @@ export default function StudioLifestyle() {
               </div>
             </div>
             <div className={styles.fieldGroup}>
-              <div className={styles.fieldLabel}>Reference image <span className={styles.optional}>(optional)</span></div>
+              <div className={styles.fieldLabel}>Scene reference <span className={styles.optional}>(optional)</span></div>
               <input
                 ref={referenceInputRef}
                 type="file"
@@ -522,14 +540,14 @@ export default function StudioLifestyle() {
               />
               {referenceImage ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <img src={referenceImage.preview} alt="Reference" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 5, border: '0.5px solid var(--border)' }} />
+                  <img src={referenceImage.preview} alt="Scene Reference" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 5, border: '0.5px solid var(--border)' }} />
                   <span style={{ fontSize: 11, color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{referenceImage.file.name}</span>
                   <button onClick={() => { URL.revokeObjectURL(referenceImage.preview); setReferenceImage(null) }} style={{ background: 'none', border: 'none', color: 'var(--danger)', fontSize: 14, cursor: 'pointer' }}>✕</button>
                 </div>
               ) : (
                 <button className={styles.uploadEmpty} style={{ height: 40, borderRadius: 6, aspectRatio: 'unset' }} onClick={() => referenceInputRef.current?.click()}>
                   <span className={styles.uploadPlus}>+</span>
-                  <span className={styles.uploadLabel}>Upload reference image</span>
+                  <span className={styles.uploadLabel}>Upload scene reference — composition, pose, lighting</span>
                 </button>
               )}
             </div>
@@ -650,6 +668,8 @@ export default function StudioLifestyle() {
                           const refKey = `${model.id}-${gi}`
                           return (
                             <div key={gi} className={styles.garmentCell}>
+
+                              {/* ── Garment flat upload ── */}
                               <input
                                 ref={el => { garmentInputRefs.current[refKey] = el }}
                                 type="file"
@@ -670,6 +690,8 @@ export default function StudioLifestyle() {
                                   <span className={styles.uploadLabel}>G{gi + 1}</span>
                                 </button>
                               )}
+
+                              {/* ── Garment type + instructions ── */}
                               <select
                                 className={styles.garmentTypeSelect}
                                 value={garment.type}
@@ -685,6 +707,32 @@ export default function StudioLifestyle() {
                                 onChange={e => updateGarment(model.id, gi, { instructions: e.target.value })}
                                 rows={2}
                               />
+
+                              {/* ── Fit reference upload ── */}
+                              <input
+                                ref={el => { fitRefInputRefs.current[refKey] = el }}
+                                type="file"
+                                accept="image/*"
+                                style={{ display: 'none' }}
+                                onChange={e => e.target.files?.[0] && handleFitReferenceFile(model.id, gi, e.target.files[0])}
+                              />
+                              {garment.fitReference ? (
+                                <div className={styles.uploadFilled} onClick={() => removeFitReference(model.id, gi)}>
+                                  <img src={garment.fitReference.preview} alt="" className={styles.uploadThumb} />
+                                  <div className={styles.uploadOverlay}>
+                                    <span className={styles.removeX}>✕</span>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button
+                                  className={styles.fitRefBtn}
+                                  onClick={() => fitRefInputRefs.current[refKey]?.click()}
+                                >
+                                  <span className={styles.uploadPlus} style={{ fontSize: 10 }}>+</span>
+                                  <span className={styles.uploadLabel}>Fit ref</span>
+                                </button>
+                              )}
+
                             </div>
                           )
                         })}
