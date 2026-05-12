@@ -15,6 +15,7 @@ interface Garment {
   image: GarmentImage | null
   type: string
   instructions: string
+  fitReference: GarmentImage | null
 }
 
 interface Model {
