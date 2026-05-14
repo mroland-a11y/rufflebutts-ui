@@ -39,6 +39,7 @@ export default function ResultsPanel({
 }: ResultsPanelProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [localRefineSubmitting, setLocalRefineSubmitting] = useState<string | null>(null)
+  const [refineJobs, setRefineJobs] = useState<{ id: string; time: string; status: 'processing' | 'done' | 'error' }[]>([])
 
   const refineSubmitting = localRefineSubmitting || externalRefineSubmitting
 
@@ -67,6 +68,12 @@ export default function ResultsPanel({
   const handleRefineSubmit = async (image: ResultImage) => {
     if (!image.refineText) return
 
+    const jobId = `refine_${Date.now()}`
+    setRefineJobs(prev => [{
+      id: jobId,
+      status: 'processing',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }, ...prev])
     setLocalRefineSubmitting(image.fileId)
 
     try {
@@ -91,9 +98,10 @@ export default function ResultsPanel({
         onAddResults(newImages)
         onReject(image.fileId)
         setExpandedId(newImages[0]?.fileId || null)
+        setRefineJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: 'done' } : j))
       }
     } catch {
-      // silent fail
+      setRefineJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: 'error' } : j))
     }
 
     setLocalRefineSubmitting(null)
@@ -112,6 +120,24 @@ export default function ResultsPanel({
           )}
         </div>
       </div>
+
+      {refineJobs.length > 0 && (
+        <div className={styles.refineJobsList}>
+          {refineJobs.slice(0, 3).map(job => (
+            <div key={job.id} className={styles.refineJobCard}>
+              <div className={styles.refineJobLeft}>
+                {job.status === 'processing' && <span className={styles.spinner} />}
+                {job.status === 'done' && <span className={styles.refineJobDot} style={{ background: 'var(--success)' }} />}
+                {job.status === 'error' && <span className={styles.refineJobDot} style={{ background: 'var(--danger)' }} />}
+                <span className={styles.refineJobName}>
+                  {job.status === 'processing' ? 'Refining image...' : job.status === 'done' ? 'Refinement complete' : 'Refinement failed'}
+                </span>
+              </div>
+              <span className={styles.refineJobTime}>{job.time}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {activeResults.length === 0 ? (
         <div className={styles.empty}>
