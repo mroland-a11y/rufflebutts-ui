@@ -1,0 +1,162 @@
+'use client'
+import { useState } from 'react'
+import styles from './ResultsPanel.module.css'
+
+export interface ResultImage {
+  fileId: string
+  imageUrl: string
+  fileName: string
+  status: 'pending' | 'approved' | 'rejected'
+  refineText?: string
+  showRefine?: boolean
+  [key: string]: unknown
+}
+
+interface ResultsPanelProps {
+  results: ResultImage[]
+  refineSubmitting: string | null
+  onApprove: (fileId: string) => void
+  onReject: (fileId: string) => void
+  onToggleRefine: (fileId: string) => void
+  onRefineTextChange: (fileId: string, text: string) => void
+  onRefineSubmit: (image: ResultImage) => void
+  onClearAll: () => void
+}
+
+export default function ResultsPanel({
+  results,
+  refineSubmitting,
+  onApprove,
+  onReject,
+  onToggleRefine,
+  onRefineTextChange,
+  onRefineSubmit,
+  onClearAll,
+}: ResultsPanelProps) {
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  const activeResults = results.filter(img => img.status !== 'rejected')
+  const approvedCount = results.filter(img => img.status === 'approved').length
+
+  const isExpanded = (image: ResultImage, index: number) => {
+    if (expandedId === image.fileId) return true
+    if (expandedId === null && index === 0) return true
+    return false
+  }
+
+  const handleToggle = (image: ResultImage, index: number) => {
+    if (isExpanded(image, index)) {
+      setExpandedId('__none__')
+    } else {
+      setExpandedId(image.fileId)
+    }
+  }
+
+  const handleReject = (fileId: string) => {
+    onReject(fileId)
+    if (expandedId === fileId) setExpandedId(null)
+  }
+
+  return (
+    <div className={styles.panel}>
+      <div className={styles.header}>
+        <div className={styles.title}>Results</div>
+        <div className={styles.headerRight}>
+          {approvedCount > 0 && (
+            <span className={styles.approvedCount}>{approvedCount} approved</span>
+          )}
+          {activeResults.length > 0 && (
+            <button className={styles.clearBtn} onClick={onClearAll}>Clear all</button>
+          )}
+        </div>
+      </div>
+
+      {activeResults.length === 0 ? (
+        <div className={styles.empty}>
+          <div className={styles.emptyIcon}>◫</div>
+          <div className={styles.emptyText}>Results will appear here after you generate</div>
+        </div>
+      ) : (
+        <div className={styles.list}>
+          {activeResults.map((image, index) => {
+            const expanded = isExpanded(image, index)
+            return (
+              <div
+                key={image.fileId}
+                className={`${styles.card} ${image.status === 'approved' ? styles.cardApproved : ''}`}
+              >
+                {!expanded ? (
+                  <div className={styles.collapsedRow} onClick={() => handleToggle(image, index)}>
+                    <img src={image.imageUrl} alt="" className={styles.thumb} crossOrigin="anonymous" />
+                    <div className={styles.collapsedMeta}>
+                      <div className={styles.collapsedName}>{image.fileName}</div>
+                      <div className={styles.collapsedStatus}>
+                        {image.status === 'approved' ? '✓ Approved' : 'Tap to expand'}
+                      </div>
+                    </div>
+                    <span className={styles.expandChevron}>›</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className={styles.imgWrap}>
+                      <img
+                        src={image.imageUrl}
+                        alt={image.fileName}
+                        className={styles.img}
+                        crossOrigin="anonymous"
+                      />
+                      {image.status === 'approved' && (
+                        <div className={styles.approvedBadge}>✓ Approved</div>
+                      )}
+                      <button className={styles.collapseBtn} onClick={() => handleToggle(image, index)}>
+                        ↑ Collapse
+                      </button>
+                    </div>
+                    <div className={styles.meta}>
+                      <div className={styles.fileName}>{image.fileName}</div>
+                      <div className={styles.actions}>
+                        {image.status === 'pending' && (
+                          <>
+                            <button className={styles.approveBtn} onClick={() => onApprove(image.fileId)}>Approve</button>
+                            <button className={styles.refineBtn} onClick={() => onToggleRefine(image.fileId)}>Refine</button>
+                            <button className={styles.rejectBtn} onClick={() => handleReject(image.fileId)}>Reject</button>
+                          </>
+                        )}
+                        {image.status === 'approved' && (
+                          <>
+                            <a href={image.imageUrl} target="_blank" rel="noopener noreferrer" className={styles.downloadBtn}>Download</a>
+                            <button className={styles.refineBtn} onClick={() => onToggleRefine(image.fileId)}>Refine</button>
+                          </>
+                        )}
+                      </div>
+                      {image.showRefine && (
+                        <div className={styles.refineBox}>
+                          <textarea
+                            className={styles.refineTextarea}
+                            placeholder="Describe what to change..."
+                            value={image.refineText || ''}
+                            onChange={e => onRefineTextChange(image.fileId, e.target.value)}
+                            rows={2}
+                          />
+                          <button
+                            className={styles.refineSubmitBtn}
+                            onClick={() => onRefineSubmit(image)}
+                            disabled={!image.refineText || refineSubmitting === image.fileId}
+                          >
+                            {refineSubmitting === image.fileId ? (
+                              <><span className={styles.spinner} /> Refining...</>
+                            ) : 'Submit refinement'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
