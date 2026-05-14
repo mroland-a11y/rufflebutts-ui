@@ -296,3 +296,44 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* ─── Refine jobs ────────────────────────────────────────── */
+.refineJobsList {
+  border-bottom: 0.5px solid var(--border);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.refineJobCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+}
+
+.refineJobLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.refineJobName {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.refineJobTime {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.refineJobDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
