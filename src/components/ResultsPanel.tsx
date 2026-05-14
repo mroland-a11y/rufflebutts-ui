@@ -19,7 +19,7 @@ interface ResultsPanelProps {
   onReject: (fileId: string) => void
   onToggleRefine: (fileId: string) => void
   onRefineTextChange: (fileId: string, text: string) => void
-  onRefineSubmit: (image: ResultImage) => void
+  onRefineSubmit: (image: ResultImage) => Promise<void>
   onClearAll: () => void
   onAddResults: (images: ResultImage[]) => void
 }
