@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useCallback, useEffect } from 'react'
 import styles from './FlatProductShot.module.css'
+import ResultsPanel, { ResultImage } from './ResultsPanel'
 
 const N8N_WEBHOOK = process.env.NEXT_PUBLIC_N8N_FLAT_WEBHOOK || ''
 
@@ -218,6 +219,8 @@ export default function FlatProductShot() {
     setRefineSubmitting(null)
   }
 
+  const handleClearAll = () => setResults([])
+
   const activeResults = results.filter(img => img.status !== 'rejected')
   const approvedResults = results.filter(img => img.status === 'approved')
 
@@ -330,86 +333,18 @@ export default function FlatProductShot() {
       </div>
 
       {/* Results Panel */}
-      {results.length > 0 && (
-        <div className={styles.resultsPanel}>
-          <div className={styles.resultsPanelHeader}>
-            <div className={styles.resultsPanelTitle}>Results</div>
-            {approvedResults.length > 0 && (
-              <span className={styles.approvedCount}>{approvedResults.length} approved</span>
-            )}
-          </div>
-          <div className={styles.resultsList}>
-            {activeResults.map((image) => (
-              <div key={image.fileId} className={`${styles.resultCard} ${image.status === 'approved' ? styles.resultApproved : ''}`}>
-                <div className={styles.resultImgWrap}>
-                  <img
-                    src={image.imageUrl}
-                    alt={image.fileName}
-                    className={styles.resultImg}
-                    crossOrigin="anonymous"
-                  />
-                  {image.status === 'approved' && (
-                    <div className={styles.approvedBadge}>✓ Approved</div>
-                  )}
-                </div>
-                <div className={styles.resultMeta}>
-                  <div className={styles.resultFileName}>{image.fileName}</div>
-                  <div className={styles.resultActions}>
-                    {image.status === 'pending' && (
-                      <>
-                        <button className={styles.approveBtn} onClick={() => handleApprove(image.fileId)}>
-                          Approve
-                        </button>
-                        <button className={styles.refineBtn} onClick={() => toggleRefine(image.fileId)}>
-                          Refine
-                        </button>
-                        <button className={styles.rejectBtn} onClick={() => handleReject(image.fileId)}>
-                          Reject
-                        </button>
-                      </>
-                    )}
-                    {image.status === 'approved' && (
-                      <>
-                        <a
-                          href={image.imageUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={styles.downloadBtn}
-                        >
-                          Download
-                        </a>
-                        <button className={styles.refineBtn} onClick={() => toggleRefine(image.fileId)}>
-                          Refine
-                        </button>
-                      </>
-                    )}
-                  </div>
-                  {image.showRefine && (
-                    <div className={styles.refineBox}>
-                      <textarea
-                        className={styles.refineTextarea}
-                        placeholder="Describe what to change..."
-                        value={image.refineText || ''}
-                        onChange={e => handleRefineTextChange(image.fileId, e.target.value)}
-                        rows={2}
-                      />
-                      <button
-                        className={styles.refineSubmitBtn}
-                        onClick={() => handleRefineSubmit(image)}
-                        disabled={!image.refineText || refineSubmitting === image.fileId}
-                      >
-                        {refineSubmitting === image.fileId ? (
-                          <><span className={styles.spinner} /> Refining...</>
-                        ) : 'Submit refinement'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <div className={styles.resultsPanel}>
+        <ResultsPanel
+          results={results}
+          refineSubmitting={refineSubmitting}
+          onApprove={handleApprove}
+          onReject={handleReject}
+          onToggleRefine={toggleRefine}
+          onRefineTextChange={handleRefineTextChange}
+          onRefineSubmit={handleRefineSubmit}
+          onClearAll={handleClearAll}
+        />
+      </div>
 
       {/* Resizable divider */}
       <div className={styles.resizeDivider} onMouseDown={handleMouseDown}>
