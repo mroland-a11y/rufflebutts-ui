@@ -12,6 +12,8 @@ export interface ResultImage {
   [key: string]: unknown
 }
 
+const REFINE_WEBHOOK = 'https://rufflebutts.app.n8n.cloud/webhook/image-refine'
+
 interface ResultsPanelProps {
   results: ResultImage[]
   refineSubmitting: string | null
@@ -31,7 +33,6 @@ export default function ResultsPanel({
   onReject,
   onToggleRefine,
   onRefineTextChange,
-  onRefineSubmit,
   onClearAll,
   onAddResults,
 }: ResultsPanelProps) {
@@ -65,6 +66,7 @@ export default function ResultsPanel({
 
   const handleRefineSubmit = async (image: ResultImage) => {
     if (!image.refineText) return
+
     const jobId = `refine_${Date.now()}`
     setRefineJobs(prev => [{
       id: jobId,
@@ -72,12 +74,35 @@ export default function ResultsPanel({
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }, ...prev])
     setLocalRefineSubmitting(image.fileId)
+
     try {
-      await onRefineSubmit(image)
+      const formData = new FormData()
+      formData.append('Original_Image_URL', image.imageUrl)
+      formData.append('Refine_Instructions', image.refineText as string)
+
+      const response = await fetch(REFINE_WEBHOOK, { method: 'POST', body: formData })
+
+      if (response.ok) {
+        const data = await response.json()
+        const responseData = Array.isArray(data) ? data[0] : data
+        const newImages: ResultImage[] = (responseData.images || []).map((img: ResultImage, i: number) => ({
+          ...img,
+          imageUrl: (img.gcsUrl as string) || img.imageUrl,
+          fileId: (img.gcsFileName as string) || img.fileId || `refined_${i}_${Date.now()}`,
+          fileName: (img.gcsFileName as string) || img.fileName,
+          status: 'pending' as const,
+          showRefine: false,
+          refineText: '',
+        }))
+        onAddResults(newImages)
+        onReject(image.fileId)
+        setExpandedId(newImages[0]?.fileId || null)
+      }
       setRefineJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: 'done' } : j))
     } catch {
       setRefineJobs(prev => prev.map(j => j.id === jobId ? { ...j, status: 'error' } : j))
     }
+
     setLocalRefineSubmitting(null)
   }
 
