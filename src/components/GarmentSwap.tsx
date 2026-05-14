@@ -129,6 +129,8 @@ export default function GarmentSwap() {
 
   const handleClearAll = () => setResults([])
 
+  const handleAddResults = (images: GeneratedImage[]) => setResults(prev => [...images, ...prev])
+
   const activeResults = results.filter(img => img.status !== 'rejected')
   const approvedResults = results.filter(img => img.status === 'approved')
 
@@ -271,6 +273,7 @@ export default function GarmentSwap() {
         onRefineTextChange={handleRefineTextChange}
         onRefineSubmit={handleRefineSubmit}
         onClearAll={handleClearAll}
+        onAddResults={handleAddResults}
       />
 
     </div>
