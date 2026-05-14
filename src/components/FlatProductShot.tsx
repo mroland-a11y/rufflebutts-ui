@@ -11,7 +11,7 @@ interface GarmentImage {
 }
 
 interface GeneratedImage {
-  index: number
+  index?: number
   fileId: string
   gcsUrl?: string
   gcsFileName?: string
