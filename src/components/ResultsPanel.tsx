@@ -12,6 +12,8 @@ export interface ResultImage {
   [key: string]: unknown
 }
 
+const REFINE_WEBHOOK = process.env.NEXT_PUBLIC_N8N_REFINE_WEBHOOK || ''
+
 interface ResultsPanelProps {
   results: ResultImage[]
   refineSubmitting: string | null
@@ -21,19 +23,24 @@ interface ResultsPanelProps {
   onRefineTextChange: (fileId: string, text: string) => void
   onRefineSubmit: (image: ResultImage) => void
   onClearAll: () => void
+  onAddResults: (images: ResultImage[]) => void
 }
 
 export default function ResultsPanel({
   results,
-  refineSubmitting,
+  refineSubmitting: externalRefineSubmitting,
   onApprove,
   onReject,
   onToggleRefine,
   onRefineTextChange,
   onRefineSubmit,
   onClearAll,
+  onAddResults,
 }: ResultsPanelProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [localRefineSubmitting, setLocalRefineSubmitting] = useState<string | null>(null)
+
+  const refineSubmitting = localRefineSubmitting || externalRefineSubmitting
 
   const activeResults = results.filter(img => img.status !== 'rejected')
   const approvedCount = results.filter(img => img.status === 'approved').length
@@ -55,6 +62,41 @@ export default function ResultsPanel({
   const handleReject = (fileId: string) => {
     onReject(fileId)
     if (expandedId === fileId) setExpandedId(null)
+  }
+
+  const handleRefineSubmit = async (image: ResultImage) => {
+    if (!image.refineText) return
+
+    setLocalRefineSubmitting(image.fileId)
+
+    try {
+      const formData = new FormData()
+      formData.append('Original_Image_URL', image.imageUrl)
+      formData.append('Refine_Instructions', image.refineText as string)
+
+      const response = await fetch(REFINE_WEBHOOK, { method: 'POST', body: formData })
+
+      if (response.ok) {
+        const data = await response.json()
+        const responseData = Array.isArray(data) ? data[0] : data
+        const newImages: ResultImage[] = (responseData.images || []).map((img: ResultImage, i: number) => ({
+          ...img,
+          imageUrl: (img.gcsUrl as string) || img.imageUrl,
+          fileId: (img.gcsFileName as string) || img.fileId || `refined_${i}_${Date.now()}`,
+          fileName: (img.gcsFileName as string) || img.fileName,
+          status: 'pending' as const,
+          showRefine: false,
+          refineText: '',
+        }))
+        onAddResults(newImages)
+        onReject(image.fileId)
+        setExpandedId(newImages[0]?.fileId || null)
+      }
+    } catch {
+      // silent fail
+    }
+
+    setLocalRefineSubmitting(null)
   }
 
   return (
@@ -134,13 +176,13 @@ export default function ResultsPanel({
                           <textarea
                             className={styles.refineTextarea}
                             placeholder="Describe what to change..."
-                            value={image.refineText || ''}
+                            value={image.refineText as string || ''}
                             onChange={e => onRefineTextChange(image.fileId, e.target.value)}
                             rows={2}
                           />
                           <button
                             className={styles.refineSubmitBtn}
-                            onClick={() => onRefineSubmit(image)}
+                            onClick={() => handleRefineSubmit(image)}
                             disabled={!image.refineText || refineSubmitting === image.fileId}
                           >
                             {refineSubmitting === image.fileId ? (
