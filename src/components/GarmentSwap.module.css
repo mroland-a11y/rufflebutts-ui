@@ -1,0 +1,478 @@
+/* ─── Root layout ────────────────────────────────────────── */
+.layout {
+  display: flex;
+  flex-direction: row;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ─── Form panel ─────────────────────────────────────────── */
+.formPanel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 380px;
+  max-width: 480px;
+  width: 420px;
+  border-right: 0.5px solid var(--border);
+}
+
+.topbar {
+  padding: 14px 20px;
+  border-bottom: 0.5px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.modelBadge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  padding: 5px 10px;
+  border-radius: 20px;
+  border: 0.5px solid var(--border);
+  white-space: nowrap;
+}
+
+.statusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+  flex-shrink: 0;
+}
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 32px;
+}
+
+/* ─── Sections ───────────────────────────────────────────── */
+.section {
+  margin-bottom: 18px;
+}
+
+.sectionLabel {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.optional {
+  color: var(--text-muted);
+  font-size: 10px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.stepDescription {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.sectionDivider {
+  height: 0.5px;
+  background: var(--border);
+  margin: 4px 0 18px;
+}
+
+/* ─── Upload box ─────────────────────────────────────────── */
+.uploadBox {
+  width: 100%;
+  padding: 20px;
+  background: var(--bg-elevated);
+  border: 0.5px dashed var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  transition: border-color 0.15s;
+}
+
+.uploadBox:hover {
+  border-color: var(--border-hover);
+  color: var(--text-secondary);
+}
+
+.uploadIcon {
+  font-size: 18px;
+  margin-bottom: 2px;
+}
+
+.uploadLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.uploadSub {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* ─── Upload preview ─────────────────────────────────────── */
+.uploadPreview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.previewImg {
+  width: 100%;
+  max-height: 240px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 0.5px solid var(--border);
+}
+
+.removeBtn {
+  background: none;
+  border: 0.5px solid var(--border);
+  border-radius: 6px;
+  color: var(--danger);
+  font-size: 11px;
+  padding: 5px 10px;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.removeBtn:hover {
+  background: var(--bg-elevated);
+}
+
+/* ─── Textarea ───────────────────────────────────────────── */
+.textarea {
+  width: 100%;
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 0.5px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  resize: none;
+  box-sizing: border-box;
+  line-height: 1.5;
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--border-hover);
+}
+
+/* ─── Submit ─────────────────────────────────────────────── */
+.submitSection {
+  padding-bottom: 20px;
+}
+
+.submitBtn {
+  width: 100%;
+  padding: 11px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: opacity 0.15s;
+}
+
+.submitBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.submitBtn:not(:disabled):hover {
+  opacity: 0.9;
+}
+
+/* ─── Jobs ───────────────────────────────────────────────── */
+.jobCard {
+  padding: 8px 0;
+  border-bottom: 0.5px solid var(--border);
+}
+
+.jobTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.jobName {
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.jobTime {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.jobStatus {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.processing {
+  background: var(--warning-bg, #fff8e6);
+  color: var(--warning, #b07d00);
+}
+
+.done {
+  background: var(--success-bg, #edfaf3);
+  color: var(--success, #1a7f4b);
+}
+
+.error {
+  background: var(--danger-bg, #fef0f0);
+  color: var(--danger, #c0392b);
+}
+
+/* ─── Divider ────────────────────────────────────────────── */
+.divider {
+  width: 0.5px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+/* ─── Results panel ──────────────────────────────────────── */
+.resultsPanel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 260px;
+}
+
+.resultsPanelHeader {
+  padding: 14px 20px;
+  border-bottom: 0.5px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.resultsPanelTitle {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.approvedCount {
+  font-size: 11px;
+  color: var(--success);
+  background: var(--success-bg, #edfaf3);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.resultsEmpty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-muted);
+}
+
+.resultsEmptyIcon {
+  font-size: 28px;
+  opacity: 0.3;
+}
+
+.resultsEmptyText {
+  font-size: 12px;
+}
+
+.resultsList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.resultCard {
+  border: 0.5px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-card, var(--bg-elevated));
+}
+
+.resultApproved {
+  border-color: var(--success);
+}
+
+.resultImgWrap {
+  position: relative;
+}
+
+.resultImg {
+  width: 100%;
+  display: block;
+  border-radius: 10px 10px 0 0;
+}
+
+.approvedBadge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: var(--success);
+  color: white;
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.resultMeta {
+  padding: 10px 12px;
+}
+
+.resultFileName {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resultActions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.approveBtn {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: none;
+  background: var(--success);
+  color: white;
+  cursor: pointer;
+}
+
+.refineBtn {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 0.5px solid var(--border);
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.rejectBtn {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: none;
+  background: var(--danger-bg, #fef0f0);
+  color: var(--danger);
+  cursor: pointer;
+}
+
+.downloadBtn {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 0.5px solid var(--border);
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.refineBox {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.refineTextarea {
+  width: 100%;
+  font-size: 11px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 0.5px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  resize: none;
+  box-sizing: border-box;
+}
+
+.refineSubmitBtn {
+  font-size: 11px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: none;
+  background: var(--accent);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+}
+
+.refineSubmitBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ─── Spinner ────────────────────────────────────────────── */
+.spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
