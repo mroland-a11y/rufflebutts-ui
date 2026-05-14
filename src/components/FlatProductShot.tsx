@@ -4,6 +4,7 @@ import styles from './FlatProductShot.module.css'
 import ResultsPanel, { ResultImage } from './ResultsPanel'
 
 const N8N_WEBHOOK = process.env.NEXT_PUBLIC_N8N_FLAT_WEBHOOK || ''
+const REFINE_WEBHOOK = process.env.NEXT_PUBLIC_N8N_REFINE_WEBHOOK || 'https://rufflebutts.app.n8n.cloud/webhook/image-refine'
 
 interface GarmentImage {
   file: File
@@ -186,38 +187,29 @@ export default function FlatProductShot() {
   }
 
   const handleRefineSubmit = async (image: GeneratedImage) => {
-    if (!image.refineText || !image.originalFile) return
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (!image.refineText) return
     setRefineSubmitting(image.fileId)
-
     const formData = new FormData()
-    formData.append('Shot Style', (image.shotStyle as string) || 'Flat Lay')
-    formData.append('Special Instructions', (image.refineText as string) || '')
-    formData.append('Garment_Image_1', image.originalFile as File)
-
+    formData.append('Original_Image_URL', image.imageUrl)
+    formData.append('Refine_Instructions', image.refineText as string)
     try {
-      const response = await fetch(N8N_WEBHOOK, { method: 'POST', body: formData })
+      const response = await fetch(REFINE_WEBHOOK, { method: 'POST', body: formData })
       if (response.ok) {
         const data = await response.json()
         const responseData = Array.isArray(data) ? data[0] : data
         const newImages: GeneratedImage[] = (responseData.images || []).map((img: GeneratedImage, i: number) => ({
           ...img,
-          imageUrl: img.gcsUrl || img.imageUrl,
-          fileId: img.gcsFileName || img.fileId || `image_${i}_${Date.now()}`,
-          fileName: img.gcsFileName || img.fileName,
+          imageUrl: (img.gcsUrl as string) || img.imageUrl,
+          fileId: (img.gcsFileName as string) || img.fileId || `refined_${i}_${Date.now()}`,
+          fileName: (img.gcsFileName as string) || img.fileName,
           status: 'pending' as const,
           showRefine: false,
           refineText: '',
-          originalFile: image.originalFile,
-          shotStyle: image.shotStyle,
         }))
         setResults(prev => [...newImages, ...prev])
         setResults(prev => prev.map(img => img.fileId === image.fileId ? { ...img, status: 'rejected', showRefine: false } : img))
       }
-    } catch {
-      // silent fail
-    }
-
+    } catch { /* silent fail */ }
     setRefineSubmitting(null)
   }
 
