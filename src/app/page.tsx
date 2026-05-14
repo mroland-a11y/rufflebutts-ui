@@ -3,6 +3,7 @@ import { useState } from 'react'
 import Sidebar from '@/components/Sidebar'
 import FlatProductShot from '@/components/FlatProductShot'
 import StudioLifestyle from '@/components/StudioLifestyle'
+import GarmentSwap from '@/components/GarmentSwap'
 import styles from './page.module.css'
 
 export default function Home() {
@@ -20,7 +21,8 @@ export default function Home() {
       <main className={styles.main}>
         {activeJob === 'flat_product_shot' && <FlatProductShot />}
         {activeJob === 'studio_lifestyle' && <StudioLifestyle />}
-        {activeJob !== 'flat_product_shot' && activeJob !== 'studio_lifestyle' && (
+        {activeJob === 'garment_swap' && <GarmentSwap />}
+        {activeJob !== 'flat_product_shot' && activeJob !== 'studio_lifestyle' && activeJob !== 'garment_swap' && (
           <div className={styles.comingSoon}>
             <div className={styles.comingSoonIcon}>◫</div>
             <div className={styles.comingSoonTitle}>Coming soon</div>
