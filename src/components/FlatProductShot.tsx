@@ -187,9 +187,9 @@ export default function FlatProductShot() {
     setRefineSubmitting(image.fileId)
 
     const formData = new FormData()
-    formData.append('Shot Style', image.shotStyle || 'Flat Lay')
-    formData.append('Special Instructions', image.refineText || '')
-    formData.append('Garment_Image_1', image.originalFile)
+    formData.append('Shot Style', (image.shotStyle as string) || 'Flat Lay')
+    formData.append('Special Instructions', (image.refineText as string) || '')
+    formData.append('Garment_Image_1', image.originalFile as File)
 
     try {
       const response = await fetch(N8N_WEBHOOK, { method: 'POST', body: formData })
