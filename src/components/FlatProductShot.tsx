@@ -15,14 +15,11 @@ interface GeneratedImage {
   fileId: string
   gcsUrl?: string
   gcsFileName?: string
-  viewUrl?: string
   imageUrl: string
   fileName: string
   status: 'pending' | 'approved' | 'rejected'
   refineText?: string
   showRefine?: boolean
-  originalFile?: File
-  shotStyle?: string
   [key: string]: unknown
 }
 
