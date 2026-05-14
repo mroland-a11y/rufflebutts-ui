@@ -34,7 +34,7 @@ interface Model {
 }
 
 interface GeneratedImage {
-  index: number
+  index?: number
   fileId: string
   gcsUrl?: string
   gcsFileName?: string
@@ -43,6 +43,7 @@ interface GeneratedImage {
   status: 'pending' | 'approved' | 'rejected'
   refineText?: string
   showRefine?: boolean
+  [key: string]: unknown
 }
 
 interface Job {
