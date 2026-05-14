@@ -15,11 +15,14 @@ interface GeneratedImage {
   fileId: string
   gcsUrl?: string
   gcsFileName?: string
+  viewUrl?: string
   imageUrl: string
   fileName: string
   status: 'pending' | 'approved' | 'rejected'
   refineText?: string
   showRefine?: boolean
+  originalFile?: File
+  shotStyle?: string
   [key: string]: unknown
 }
 
@@ -184,6 +187,7 @@ export default function FlatProductShot() {
 
   const handleRefineSubmit = async (image: GeneratedImage) => {
     if (!image.refineText || !image.originalFile) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     setRefineSubmitting(image.fileId)
 
     const formData = new FormData()
