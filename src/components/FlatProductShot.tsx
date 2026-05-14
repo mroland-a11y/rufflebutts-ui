@@ -23,6 +23,7 @@ interface GeneratedImage {
   showRefine?: boolean
   originalFile?: File
   shotStyle?: string
+  [key: string]: unknown
 }
 
 interface Job {
