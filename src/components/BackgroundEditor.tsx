@@ -71,8 +71,8 @@ export default function BackgroundEditor() {
 
   // Extend
   const [extendPosition, setExtendPosition] = useState<Position>('center')
-  const [extendHex, setExtendHex] = useState('#FFFFFF')
-  const [extendHexInput, setExtendHexInput] = useState('#FFFFFF')
+  const [targetWidth, setTargetWidth] = useState('')
+  const [targetHeight, setTargetHeight] = useState('')
 
   // Output
   const [outputWidth, setOutputWidth] = useState('')
