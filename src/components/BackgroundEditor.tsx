@@ -57,8 +57,10 @@ export default function BackgroundEditor() {
   const [replaceBg, setReplaceBg] = useState<UploadedImage | null>(null)
 
   // Solid color
-  const [solidHex, setSolidHex] = useState('#FFFFFF')
-  const [solidHexInput, setSolidHexInput] = useState('#FFFFFF')
+ const [extendHex, setExtendHex] = useState('#FFFFFF')
+  const [extendHexInput, setExtendHexInput] = useState('#FFFFFF')
+  const [targetWidth, setTargetWidth] = useState('')
+  const [targetHeight, setTargetHeight] = useState('')
 
   // Remove
   const [removeHex, setRemoveHex] = useState('')
