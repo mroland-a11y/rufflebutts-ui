@@ -56,7 +56,7 @@ interface Job {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const AGE_OPTIONS = ['Newborn', '12m', '18-24m', '3yr', '6yr', '10yr', '30yr']
+const AGE_OPTIONS = ['Newborn', 'Infant', 'Toddler', 'Little Kid', 'Big Kid', 'Tween', 'Adult']
 const SEX_OPTIONS = ['Male', 'Female']
 const RACE_OPTIONS = ['White', 'Hispanic', 'Black', 'Persian', 'European', 'Asian', 'Light-Skinned Black']
 const HAIR_LENGTH_OPTIONS = ['Short', 'Medium', 'Long']
