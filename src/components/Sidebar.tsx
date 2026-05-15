@@ -5,8 +5,9 @@ const jobTypes = [
   { id: 'flat_product_shot', label: 'Flat product shots', ready: true },
   { id: 'studio_lifestyle', label: 'Studio & Lifestyle', ready: true },
   { id: 'garment_swap', label: 'Garment swap', ready: true },
+  { id: 'background_editor', label: 'Background', ready: true },
   { id: 'outfit_builder', label: 'Outfit builder', ready: false },
-  { id: 'scene_background', label: 'Scene / background', ready: false },
+  
   { id: 'campaign_assets', label: 'Campaign assets', ready: false },
   { id: 'detail_shots', label: 'Detail shots', ready: false },
   { id: 'retouch_editing', label: 'Retouch / editing', ready: false },
