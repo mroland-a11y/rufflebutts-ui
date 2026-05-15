@@ -57,10 +57,8 @@ export default function BackgroundEditor() {
   const [replaceBg, setReplaceBg] = useState<UploadedImage | null>(null)
 
   // Solid color
- const [extendHex, setExtendHex] = useState('#FFFFFF')
-  const [extendHexInput, setExtendHexInput] = useState('#FFFFFF')
-  const [targetWidth, setTargetWidth] = useState('')
-  const [targetHeight, setTargetHeight] = useState('')
+  const [solidHex, setSolidHex] = useState('#FFFFFF')
+  const [solidHexInput, setSolidHexInput] = useState('#FFFFFF')
 
   // Remove
   const [removeHex, setRemoveHex] = useState('')
@@ -72,9 +70,11 @@ export default function BackgroundEditor() {
   const [bgDescription, setBgDescription] = useState('')
 
   // Extend
-  const [extendPosition, setExtendPosition] = useState<Position>('center')
+  const [extendHex, setExtendHex] = useState('#FFFFFF')
+  const [extendHexInput, setExtendHexInput] = useState('#FFFFFF')
   const [targetWidth, setTargetWidth] = useState('')
   const [targetHeight, setTargetHeight] = useState('')
+  const [extendPosition, setExtendPosition] = useState<Position>('center')
 
   // Output
   const [outputWidth, setOutputWidth] = useState('')
@@ -91,7 +91,6 @@ export default function BackgroundEditor() {
   const sourceInputRef = useRef<HTMLInputElement>(null)
   const replaceBgInputRef = useRef<HTMLInputElement>(null)
 
-  // When remove mode + no hex = force PNG
   const isTransparent = mode === 'remove' && useTransparent
   const effectiveFormat: Format = isTransparent ? 'png' : outputFormat
 
@@ -148,13 +147,10 @@ export default function BackgroundEditor() {
 
   const handleModeChange = (newMode: Mode) => {
     setMode(newMode)
-    // Auto-set PNG for remove mode
-    if (newMode === 'remove') {
-      setOutputFormat('png')
-    }
+    if (newMode === 'remove') setOutputFormat('png')
   }
 
-  const canSubmit = sourceImage && !submitting && (
+  const canSubmit = !!sourceImage && !submitting && (
     mode === 'solid' ||
     mode === 'remove' ||
     (mode === 'replace' && (replaceBgMode === 'upload' ? !!replaceBg : !!bgDescription)) ||
@@ -244,7 +240,7 @@ export default function BackgroundEditor() {
   const handleRefineTextChange = (fileId: string, text: string) =>
     setResults(prev => prev.map(img => img.fileId === fileId ? { ...img, refineText: text } : img))
 
-  const handleRefineSubmit = async (image: GeneratedImage): Promise<void> => {
+  const handleRefineSubmit = async (_image: GeneratedImage): Promise<void> => {
     // Handled by ResultsPanel directly
   }
 
@@ -256,7 +252,6 @@ export default function BackgroundEditor() {
   return (
     <div className={styles.layout}>
 
-      {/* ── Left: Form panel ── */}
       <div className={styles.formPanel}>
         <div className={styles.topbar}>
           <div>
@@ -315,8 +310,6 @@ export default function BackgroundEditor() {
           </section>
 
           <div className={styles.sectionDivider} />
-
-          {/* Mode-specific inputs */}
 
           {/* SOLID COLOR */}
           {mode === 'solid' && (
@@ -573,10 +566,8 @@ export default function BackgroundEditor() {
         </div>
       </div>
 
-      {/* ── Divider ── */}
       <div className={styles.divider} />
 
-      {/* ── Right: Results panel ── */}
       <ResultsPanel
         results={results}
         refineSubmitting={refineSubmitting}
