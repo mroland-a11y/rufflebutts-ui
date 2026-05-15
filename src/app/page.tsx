@@ -4,6 +4,7 @@ import Sidebar from '@/components/Sidebar'
 import FlatProductShot from '@/components/FlatProductShot'
 import StudioLifestyle from '@/components/StudioLifestyle'
 import GarmentSwap from '@/components/GarmentSwap'
+import BackgroundEditor from '@/components/BackgroundEditor'
 import styles from './page.module.css'
 
 export default function Home() {
@@ -19,17 +20,10 @@ export default function Home() {
         jobCount={jobCount}
       />
       <main className={styles.main}>
-        {/* All tabs rendered always — hidden with CSS to preserve state */}
-        <div style={{ display: activeJob === 'flat_product_shot' ? 'contents' : 'none' }}>
-          <FlatProductShot />
-        </div>
-        <div style={{ display: activeJob === 'studio_lifestyle' ? 'contents' : 'none' }}>
-          <StudioLifestyle />
-        </div>
-        <div style={{ display: activeJob === 'garment_swap' ? 'contents' : 'none' }}>
-          <GarmentSwap />
-        </div>
-        {activeJob !== 'flat_product_shot' && activeJob !== 'studio_lifestyle' && activeJob !== 'garment_swap' && (
+        {activeJob === 'flat_product_shot' && <FlatProductShot />}
+        {activeJob === 'studio_lifestyle' && <StudioLifestyle />}
+        {activeJob === 'garment_swap' && <GarmentSwap />}
+        {activeJob !== 'flat_product_shot' && activeJob !== 'studio_lifestyle' && activeJob !== 'garment_swap' && activeJob !== 'background_editor' && (
           <div className={styles.comingSoon}>
             <div className={styles.comingSoonIcon}>◫</div>
             <div className={styles.comingSoonTitle}>Coming soon</div>
