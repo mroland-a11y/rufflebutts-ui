@@ -20,9 +20,18 @@ export default function Home() {
         jobCount={jobCount}
       />
       <main className={styles.main}>
-        {activeJob === 'flat_product_shot' && <FlatProductShot />}
-        {activeJob === 'studio_lifestyle' && <StudioLifestyle />}
-        {activeJob === 'garment_swap' && <GarmentSwap />}
+        <div style={{ display: activeJob === 'flat_product_shot' ? 'flex' : 'none', flex: 1, overflow: 'hidden' }}>
+          <FlatProductShot />
+        </div>
+        <div style={{ display: activeJob === 'studio_lifestyle' ? 'flex' : 'none', flex: 1, overflow: 'hidden' }}>
+          <StudioLifestyle />
+        </div>
+        <div style={{ display: activeJob === 'garment_swap' ? 'flex' : 'none', flex: 1, overflow: 'hidden' }}>
+          <GarmentSwap />
+        </div>
+        <div style={{ display: activeJob === 'background_editor' ? 'flex' : 'none', flex: 1, overflow: 'hidden' }}>
+          <BackgroundEditor />
+        </div>
         {activeJob !== 'flat_product_shot' && activeJob !== 'studio_lifestyle' && activeJob !== 'garment_swap' && activeJob !== 'background_editor' && (
           <div className={styles.comingSoon}>
             <div className={styles.comingSoonIcon}>◫</div>
