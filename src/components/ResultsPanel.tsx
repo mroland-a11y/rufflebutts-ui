@@ -175,13 +175,8 @@ export default function ResultsPanel({
                       {image.status === 'approved' && (
                         <div className={styles.approvedBadge}>✓ Approved</div>
                       )}
-                      <button className={styles.collapseBtn} onClick={() => handleToggle(image, index)}>
-                        ↑ Collapse
-                      </button>
-                    </div>
-                    <div className={styles.meta}>
-                      <div className={styles.fileName}>{image.fileName}</div>
-                      <div className={styles.actions}>
+                      {/* Actions overlaid top-left */}
+                      <div className={styles.actionsOverlay}>
                         {image.status === 'pending' && (
                           <>
                             <button className={styles.approveBtn} onClick={() => onApprove(image.fileId)}>Approve</button>
@@ -191,11 +186,17 @@ export default function ResultsPanel({
                         )}
                         {image.status === 'approved' && (
                           <>
-                            <a href={image.imageUrl} target="_blank" rel="noopener noreferrer" className={styles.downloadBtn}>Download</a>
+                            <a href="https://drive.google.com/drive/folders/1xa7PYDfHsUTXferjcdYQPGvHP_Ayi-uM" target="_blank" rel="noopener noreferrer" className={styles.downloadBtn}>View in Drive</a>
                             <button className={styles.refineBtn} onClick={() => onToggleRefine(image.fileId)}>Refine</button>
                           </>
                         )}
                       </div>
+                      <button className={styles.collapseBtn} onClick={() => handleToggle(image, index)}>
+                        ↑ Collapse
+                      </button>
+                    </div>
+                    <div className={styles.meta}>
+                      <div className={styles.fileName}>{image.fileName}</div>
                       {image.showRefine && (
                         <div className={styles.refineBox}>
                           <textarea
