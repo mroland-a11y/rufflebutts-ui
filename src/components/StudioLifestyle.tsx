@@ -17,11 +17,12 @@ interface Garment {
   image: GarmentImage | null
   type: string
   instructions: string
-  fitReference: GarmentImage | null
 }
 
 interface Model {
   id: string
+  referenceModel: GarmentImage | null
+  shotDirection: string
   age: string
   sex: string
   race: string
@@ -65,6 +66,7 @@ const POSITION_OPTIONS = ['Left', 'Center', 'Right']
 const TIME_OF_DAY_OPTIONS = ['Morning', 'Midday', 'Golden Hour', 'Overcast', 'Night']
 const LIGHTING_OPTIONS = ['Studio', 'Natural', 'Golden Hour', 'Dramatic', 'Overcast']
 const GARMENT_TYPE_OPTIONS = ['Top', 'Bottom', 'Hair Accessory', 'Cover', 'Accessories']
+const SHOT_DIRECTION_OPTIONS = ['Front', 'Back', '3/4 Turn', 'Side']
 const DIMENSION_PRESETS = [
   { label: '3:4 — 1800×2400', width: '1800', height: '2400' },
   { label: '1:1 — 2400×2400', width: '2400', height: '2400' },
@@ -72,18 +74,20 @@ const DIMENSION_PRESETS = [
   { label: 'Custom', width: '', height: '' },
 ]
 
-const DEFAULT_PERSONALITY = 'smiling, laughing, standing, sitting, arms naturally posed'
+const DEFAULT_PERSONALITY = 'smiling, laughing, standing, arms naturally posed'
 
 const MIN_FORM = 380
 const MIN_RESULTS = 260
 
 function makeGarment(): Garment {
-  return { image: null, type: '', instructions: '', fitReference: null }
+  return { image: null, type: '', instructions: '' }
 }
 
 function makeModel(id: string): Model {
   return {
     id,
+    referenceModel: null,
+    shotDirection: 'Front',
     age: '',
     sex: '',
     race: '',
@@ -116,8 +120,8 @@ export default function StudioLifestyle() {
 
   // Scene
   const [sceneType, setSceneType] = useState<'Studio' | 'Lifestyle'>('Studio')
-  const [bgColor, setBgColor] = useState('#FFFFFF')
-  const [bgColorHex, setBgColorHex] = useState('#FFFFFF')
+  const [bgColor, setBgColor] = useState('#F7F6F7')
+  const [bgColorHex, setBgColorHex] = useState('#F7F6F7')
   const [sceneDirection, setSceneDirection] = useState('')
   const [referenceImage, setReferenceImage] = useState<GarmentImage | null>(null)
   const [timeOfDay, setTimeOfDay] = useState('Midday')
@@ -193,7 +197,7 @@ export default function StudioLifestyle() {
   // File input refs
   const referenceInputRef = useRef<HTMLInputElement>(null)
   const garmentInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({})
-  const fitRefInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({})
+  const referenceModelInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({})
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -238,18 +242,20 @@ export default function StudioLifestyle() {
     }))
   }
 
-  const handleFitReferenceFile = (modelId: string, garmentIdx: number, file: File) => {
+  const handleReferenceModelFile = (modelId: string, file: File) => {
     const preview = URL.createObjectURL(file)
-    updateGarment(modelId, garmentIdx, { fitReference: { file, preview } })
-  }
-
-  const removeFitReference = (modelId: string, garmentIdx: number) => {
     setModels(prev => prev.map(m => {
       if (m.id !== modelId) return m
-      const garments = [...m.garments]
-      if (garments[garmentIdx].fitReference) URL.revokeObjectURL(garments[garmentIdx].fitReference!.preview)
-      garments[garmentIdx] = { ...garments[garmentIdx], fitReference: null }
-      return { ...m, garments }
+      if (m.referenceModel) URL.revokeObjectURL(m.referenceModel.preview)
+      return { ...m, referenceModel: { file, preview } }
+    }))
+  }
+
+  const removeReferenceModel = (modelId: string) => {
+    setModels(prev => prev.map(m => {
+      if (m.id !== modelId) return m
+      if (m.referenceModel) URL.revokeObjectURL(m.referenceModel.preview)
+      return { ...m, referenceModel: null }
     }))
   }
 
@@ -314,14 +320,13 @@ export default function StudioLifestyle() {
       formData.append(`${prefix}_Body_Type`, m.bodyType)
       formData.append(`${prefix}_Personality`, m.personality)
       formData.append(`${prefix}_Pose`, m.poseDirection)
+      formData.append(`${prefix}_Shot_Direction`, m.shotDirection)
+      if (m.referenceModel) formData.append(`${prefix}_Reference_Model`, m.referenceModel.file)
       m.garments.forEach((g, gi) => {
         if (g.image) {
           formData.append(`${prefix}_Garment_${gi + 1}`, g.image.file)
           formData.append(`${prefix}_Garment_${gi + 1}_Type`, g.type)
           formData.append(`${prefix}_Garment_${gi + 1}_Instructions`, g.instructions)
-          if (g.fitReference) {
-            formData.append(`${prefix}_Garment_${gi + 1}_Fit_Reference`, g.fitReference.file)
-          }
         }
       })
     })
@@ -611,6 +616,31 @@ export default function StudioLifestyle() {
 
                 {model.expanded && (
                   <div className={styles.modelCardBody}>
+
+                    {/* ── Reference model upload ── */}
+                    <div className={styles.fieldGroup}>
+                      <div className={styles.fieldLabel}>Reference model <span className={styles.optional}>(optional — dress this specific person)</span></div>
+                      <input
+                        ref={el => { referenceModelInputRefs.current[model.id] = el }}
+                        type="file"
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        onChange={e => e.target.files?.[0] && handleReferenceModelFile(model.id, e.target.files[0])}
+                      />
+                      {model.referenceModel ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <img src={model.referenceModel.preview} alt="Reference Model" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 5, border: '0.5px solid var(--border)' }} />
+                          <span style={{ fontSize: 11, color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{model.referenceModel.file.name}</span>
+                          <button onClick={() => removeReferenceModel(model.id)} style={{ background: 'none', border: 'none', color: 'var(--danger)', fontSize: 14, cursor: 'pointer' }}>✕</button>
+                        </div>
+                      ) : (
+                        <button className={styles.uploadEmpty} style={{ height: 40, borderRadius: 6, aspectRatio: 'unset' }} onClick={() => referenceModelInputRefs.current[model.id]?.click()}>
+                          <span className={styles.uploadPlus}>+</span>
+                          <span className={styles.uploadLabel}>Upload reference model photo</span>
+                        </button>
+                      )}
+                    </div>
+
                     <div className={styles.threeCol}>
                       <div className={styles.fieldGroup}>
                         <div className={styles.fieldLabel}>Age</div>
@@ -627,15 +657,21 @@ export default function StudioLifestyle() {
                         </select>
                       </div>
                       <div className={styles.fieldGroup}>
+                        <div className={styles.fieldLabel}>Shot direction</div>
+                        <select value={model.shotDirection} onChange={e => updateModel(model.id, { shotDirection: e.target.value })}>
+                          {SHOT_DIRECTION_OPTIONS.map(o => <option key={o}>{o}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className={styles.threeCol}>
+                      <div className={styles.fieldGroup}>
                         <div className={styles.fieldLabel}>Race</div>
                         <select value={model.race} onChange={e => updateModel(model.id, { race: e.target.value })}>
                           <option value="">Select</option>
                           {RACE_OPTIONS.map(o => <option key={o}>{o}</option>)}
                         </select>
                       </div>
-                    </div>
-
-                    <div className={styles.threeCol}>
                       <div className={styles.fieldGroup}>
                         <div className={styles.fieldLabel}>Hair color</div>
                         <input type="text" placeholder="e.g. Blonde" value={model.hairColor} onChange={e => updateModel(model.id, { hairColor: e.target.value })} />
@@ -647,21 +683,22 @@ export default function StudioLifestyle() {
                           {HAIR_LENGTH_OPTIONS.map(o => <option key={o}>{o}</option>)}
                         </select>
                       </div>
-                      <div className={styles.fieldGroup}>
-                        <div className={styles.fieldLabel}>Body type</div>
-                        <input type="text" placeholder="e.g. Slim" value={model.bodyType} onChange={e => updateModel(model.id, { bodyType: e.target.value })} />
-                      </div>
                     </div>
 
                     <div className={styles.twoCol}>
                       <div className={styles.fieldGroup}>
+                        <div className={styles.fieldLabel}>Body type</div>
+                        <input type="text" placeholder="e.g. Slim" value={model.bodyType} onChange={e => updateModel(model.id, { bodyType: e.target.value })} />
+                      </div>
+                      <div className={styles.fieldGroup}>
                         <div className={styles.fieldLabel}>Personality / pose</div>
                         <input type="text" value={model.personality} onChange={e => updateModel(model.id, { personality: e.target.value })} />
                       </div>
-                      <div className={styles.fieldGroup}>
-                        <div className={styles.fieldLabel}>Custom pose direction <span className={styles.optional}>(optional)</span></div>
-                        <input type="text" placeholder="e.g. Hand on hips" value={model.poseDirection} onChange={e => updateModel(model.id, { poseDirection: e.target.value })} />
-                      </div>
+                    </div>
+
+                    <div className={styles.fieldGroup}>
+                      <div className={styles.fieldLabel}>Custom pose direction <span className={styles.optional}>(optional)</span></div>
+                      <input type="text" placeholder="e.g. Hand on hips" value={model.poseDirection} onChange={e => updateModel(model.id, { poseDirection: e.target.value })} />
                     </div>
 
                     <div>
@@ -710,31 +747,6 @@ export default function StudioLifestyle() {
                                 onChange={e => updateGarment(model.id, gi, { instructions: e.target.value })}
                                 rows={2}
                               />
-
-                              {/* ── Fit reference upload ── */}
-                              <input
-                                ref={el => { fitRefInputRefs.current[refKey] = el }}
-                                type="file"
-                                accept="image/*"
-                                style={{ display: 'none' }}
-                                onChange={e => e.target.files?.[0] && handleFitReferenceFile(model.id, gi, e.target.files[0])}
-                              />
-                              {garment.fitReference ? (
-                                <div className={styles.uploadFilled} onClick={() => removeFitReference(model.id, gi)}>
-                                  <img src={garment.fitReference.preview} alt="" className={styles.uploadThumb} />
-                                  <div className={styles.uploadOverlay}>
-                                    <span className={styles.removeX}>✕</span>
-                                  </div>
-                                </div>
-                              ) : (
-                                <button
-                                  className={styles.fitRefBtn}
-                                  onClick={() => fitRefInputRefs.current[refKey]?.click()}
-                                >
-                                  <span className={styles.uploadPlus} style={{ fontSize: 10 }}>+</span>
-                                  <span className={styles.uploadLabel}>Fit ref</span>
-                                </button>
-                              )}
 
                             </div>
                           )
@@ -814,7 +826,7 @@ export default function StudioLifestyle() {
 
       {/* ── Right: Results panel ── */}
       <div
-        style={{ width: resultsWidth || '40%', minWidth: MIN_RESULTS, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+        style={{ width: resultsWidth || '40%', minWidth: MIN_RESULTS, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
       >
         <ResultsPanel
           results={results}
