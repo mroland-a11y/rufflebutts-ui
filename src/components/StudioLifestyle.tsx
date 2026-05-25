@@ -340,7 +340,10 @@ export default function StudioLifestyle() {
     }, ...prev])
 
     try {
-      const response = await fetch(N8N_WEBHOOK, { method: 'POST', body: formData })
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 600000) // 10 minutes
+      const response = await fetch(N8N_WEBHOOK, { method: 'POST', body: formData, signal: controller.signal })
+        clearTimeout(timeout)
       if (response.ok) {
         const data = await response.json()
         const responseData = Array.isArray(data) ? data[0] : data
