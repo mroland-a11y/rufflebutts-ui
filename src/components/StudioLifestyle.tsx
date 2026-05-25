@@ -137,6 +137,7 @@ export default function StudioLifestyle() {
 
   // Scene set
   const [sceneSet, setSceneSet] = useState('')
+  const [imageProvider, setImageProvider] = useState<'gemini' | 'openai'>('gemini')
 
   // Submission
   const [submitting, setSubmitting] = useState(false)
@@ -306,7 +307,8 @@ export default function StudioLifestyle() {
     formData.append('Season Theme', seasonTheme)
     formData.append('Lighting Preset', lightingPreset)
     formData.append('Lighting Instructions', lightingInstructions)
-    formData.append('Scene Set', sceneSet)
+   formData.append('Scene Set', sceneSet)
+    formData.append('Image_Provider', imageProvider)
     formData.append('Model Count', String(models.length))
     if (referenceImage) formData.append('Scene_Reference', referenceImage.file)
 
@@ -471,7 +473,30 @@ export default function StudioLifestyle() {
           </div>
           <div className={styles.modelBadge}>
             <span className={styles.statusDot} />
-            Gemini 3 Pro
+            <button
+              onClick={() => setImageProvider('gemini')}
+              style={{
+                background: imageProvider === 'gemini' ? 'var(--accent)' : 'transparent',
+                color: imageProvider === 'gemini' ? '#fff' : 'inherit',
+                border: 'none',
+                padding: '2px 8px',
+                borderRadius: 4,
+                cursor: 'pointer',
+                fontSize: 11,
+              }}
+            >Gemini</button>
+            <button
+              onClick={() => setImageProvider('openai')}
+              style={{
+                background: imageProvider === 'openai' ? 'var(--accent)' : 'transparent',
+                color: imageProvider === 'openai' ? '#fff' : 'inherit',
+                border: 'none',
+                padding: '2px 8px',
+                borderRadius: 4,
+                cursor: 'pointer',
+                fontSize: 11,
+              }}
+            >OpenAI</button>
           </div>
         </div>
 
