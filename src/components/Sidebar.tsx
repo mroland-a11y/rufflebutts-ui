@@ -10,7 +10,7 @@ const jobTypes = [
   
   { id: 'campaign_assets', label: 'Campaign assets', ready: false },
   { id: 'detail_shots', label: 'Detail shots', ready: false },
-  { id: 'retouch_editing', label: 'Retouch / editing', ready: false },
+  { id: 'retouch_editing', label: 'Retouch / editing', ready: true },
   { id: 'size_inclusivity', label: 'Size inclusivity', ready: false },
 ]
 
