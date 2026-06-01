@@ -5,6 +5,7 @@ import FlatProductShot from '@/components/FlatProductShot'
 import StudioLifestyle from '@/components/StudioLifestyle'
 import GarmentSwap from '@/components/GarmentSwap'
 import BackgroundEditor from '@/components/BackgroundEditor'
+import RetouchEditing from '@/components/RetouchEditing'
 import styles from './page.module.css'
 
 export default function Home() {
@@ -32,7 +33,10 @@ export default function Home() {
         <div style={{ display: activeJob === 'background_editor' ? 'flex' : 'none', flex: 1, overflow: 'hidden' }}>
           <BackgroundEditor />
         </div>
-        {activeJob !== 'flat_product_shot' && activeJob !== 'studio_lifestyle' && activeJob !== 'garment_swap' && activeJob !== 'background_editor' && (
+        <div style={{ display: activeJob === 'retouch_editing' ? 'flex' : 'none', flex: 1, overflow: 'hidden' }}>
+          <RetouchEditing />
+        </div>
+        {activeJob !== 'flat_product_shot' && activeJob !== 'studio_lifestyle' && activeJob !== 'garment_swap' && activeJob !== 'background_editor' && activeJob !== 'retouch_editing' && (
           <div className={styles.comingSoon}>
             <div className={styles.comingSoonIcon}>◫</div>
             <div className={styles.comingSoonTitle}>Coming soon</div>
