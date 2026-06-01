@@ -3,7 +3,7 @@ import { useState, useRef } from 'react'
 import styles from './GarmentSwap.module.css'
 import ResultsPanel, { ResultImage } from './ResultsPanel'
 
-const REFINE_WEBHOOK = process.env.NEXT_PUBLIC_N8N_REFINE_WEBHOOK || 'https://rufflebutts.app.n8n.cloud/webhook/image-refine'
+const REFINE_WEBHOOK = process.env.NEXT_PUBLIC_N8N_RETOUCH_WEBHOOK || 'https://rufflebutts.app.n8n.cloud/webhook/image-refine-upload'
 
 interface SourceImage {
   file: File
