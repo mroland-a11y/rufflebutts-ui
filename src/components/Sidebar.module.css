@@ -44,6 +44,12 @@
   margin-top: 4px;
 }
 
+.navLabelSpaced {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 0.5px solid var(--border);
+}
+
 .navItem {
   display: flex;
   align-items: center;
