@@ -15,6 +15,29 @@ function makeCopyField(id: string): CopyField {
   return { id, value: '', improved: '', improving: false }
 }
 
+async function fetchImprovement(fieldLabel: string, currentValue: string, campaignBrief: string): Promise<string> {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      messages: [{
+        role: 'user',
+        content: `You are a children's apparel email marketing copywriter for RuffleButts, a brand known for ruffle-bottom clothing and family matching sets.
+
+Campaign brief: "${campaignBrief}"
+Field: ${fieldLabel}
+Current copy: "${currentValue}"
+
+Suggest ONE improved version of this copy. Be concise, punchy, and on-brand. Keep it the same length or shorter. Return ONLY the improved copy text, nothing else.`
+      }]
+    })
+  })
+  const data = await res.json()
+  return data.content?.[0]?.text?.trim() || ''
+}
+
 export default function EmailMarketing() {
   const [templateFile, setTemplateFile] = useState<File | null>(null)
   const [templatePreview, setTemplatePreview] = useState<string | null>(null)
@@ -45,35 +68,16 @@ export default function EmailMarketing() {
     setTemplatePreview(null)
   }
 
-  // ── AI improve helper ────────────────────────────────────────────
-  const improveWithAI = async (
-    fieldLabel: string,
-    currentValue: string,
-    setter: (updater: (prev: CopyField) => CopyField) => void
+  // ── Single field improve ─────────────────────────────────────────
+  const improveField = async (
+    label: string,
+    field: CopyField,
+    setter: React.Dispatch<React.SetStateAction<CopyField>>
   ) => {
-    if (!currentValue.trim()) return
+    if (!field.value.trim()) return
     setter(prev => ({ ...prev, improving: true, improved: '' }))
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          messages: [{
-            role: 'user',
-            content: `You are a children's apparel email marketing copywriter for RuffleButts, a brand known for ruffle-bottom clothing and family matching sets. 
-
-Campaign brief: "${campaignBrief}"
-Field: ${fieldLabel}
-Current copy: "${currentValue}"
-
-Suggest ONE improved version of this copy. Be concise, punchy, and on-brand. Keep it the same length or shorter. Return ONLY the improved copy text, nothing else.`
-          }]
-        })
-      })
-      const data = await res.json()
-      const improved = data.content?.[0]?.text?.trim() || ''
+      const improved = await fetchImprovement(label, field.value, campaignBrief)
       setter(prev => ({ ...prev, improving: false, improved }))
     } catch {
       setter(prev => ({ ...prev, improving: false }))
@@ -88,17 +92,20 @@ Suggest ONE improved version of this copy. Be concise, punchy, and on-brand. Kee
   const removeCallout = (id: string) => setCallouts(prev => prev.filter(c => c.id !== id))
   const updateCallout = (id: string, value: string) =>
     setCallouts(prev => prev.map(c => c.id === id ? { ...c, value, improved: '' } : c))
-  const improveCallout = (id: string) => {
+  const dismissCallout = (id: string) =>
+    setCallouts(prev => prev.map(c => c.id === id ? { ...c, improved: '' } : c))
+  const useCalloutSuggestion = (id: string) =>
+    setCallouts(prev => prev.map(c => c.id === id ? { ...c, value: c.improved, improved: '' } : c))
+  const improveCallout = async (id: string) => {
     const c = callouts.find(x => x.id === id)
-    if (!c) return
+    if (!c || !c.value.trim()) return
     setCallouts(prev => prev.map(x => x.id === id ? { ...x, improving: true, improved: '' } : x))
-    improveWithAI('Callout', c.value, setter => {
-      setCallouts(prev => prev.map(x => {
-        const updated = { ...x }
-        setter((y: CopyField) => { if (x.id === id) Object.assign(updated, y); return y })
-        return x.id === id ? updated : x
-      }))
-    })
+    try {
+      const improved = await fetchImprovement('Callout', c.value, campaignBrief)
+      setCallouts(prev => prev.map(x => x.id === id ? { ...x, improving: false, improved } : x))
+    } catch {
+      setCallouts(prev => prev.map(x => x.id === id ? { ...x, improving: false } : x))
+    }
   }
 
   // ── CTA helpers ──────────────────────────────────────────────────
@@ -109,29 +116,31 @@ Suggest ONE improved version of this copy. Be concise, punchy, and on-brand. Kee
   const removeCta = (id: string) => setCtas(prev => prev.filter(c => c.id !== id))
   const updateCta = (id: string, value: string) =>
     setCtas(prev => prev.map(c => c.id === id ? { ...c, value, improved: '' } : c))
-  const improveCta = (id: string) => {
+  const dismissCta = (id: string) =>
+    setCtas(prev => prev.map(c => c.id === id ? { ...c, improved: '' } : c))
+  const useCtaSuggestion = (id: string) =>
+    setCtas(prev => prev.map(c => c.id === id ? { ...c, value: c.improved, improved: '' } : c))
+  const improveCta = async (id: string) => {
     const c = ctas.find(x => x.id === id)
-    if (!c) return
+    if (!c || !c.value.trim()) return
     setCtas(prev => prev.map(x => x.id === id ? { ...x, improving: true, improved: '' } : x))
-    improveWithAI('CTA Button', c.value, setter => {
-      setCtas(prev => prev.map(x => {
-        const updated = { ...x }
-        setter((y: CopyField) => { if (x.id === id) Object.assign(updated, y); return y })
-        return x.id === id ? updated : x
-      }))
-    })
+    try {
+      const improved = await fetchImprovement('CTA Button', c.value, campaignBrief)
+      setCtas(prev => prev.map(x => x.id === id ? { ...x, improving: false, improved } : x))
+    } catch {
+      setCtas(prev => prev.map(x => x.id === id ? { ...x, improving: false } : x))
+    }
   }
 
   // ── Submit ───────────────────────────────────────────────────────
-  const canSubmit = templateFile && campaignBrief.trim()
+  const canSubmit = !!templateFile && campaignBrief.trim().length > 0
 
   const handleSubmit = async () => {
-    if (!canSubmit) return
+    if (!canSubmit || !templateFile) return
     setSubmitting(true)
     setMockupUrl(null)
-
     const formData = new FormData()
-    formData.append('Template_Image', templateFile!)
+    formData.append('Template_Image', templateFile)
     formData.append('Campaign_Brief', campaignBrief)
     formData.append('Subject_Line', subjectLine.improved || subjectLine.value)
     formData.append('Preview_Text', previewText.improved || previewText.value)
@@ -139,7 +148,6 @@ Suggest ONE improved version of this copy. Be concise, punchy, and on-brand. Kee
     formData.append('Subheadline', subheadline.improved || subheadline.value)
     formData.append('Callouts', JSON.stringify(callouts.map(c => c.improved || c.value)))
     formData.append('CTAs', JSON.stringify(ctas.map(c => c.improved || c.value)))
-
     try {
       const res = await fetch(N8N_EMAIL_WEBHOOK, { method: 'POST', body: formData })
       if (res.ok) {
@@ -155,13 +163,13 @@ Suggest ONE improved version of this copy. Be concise, punchy, and on-brand. Kee
   const CopyRow = ({
     label,
     field,
-    setField,
+    setter,
     placeholder,
-    optional
+    optional,
   }: {
     label: string
     field: CopyField
-    setField: (updater: (prev: CopyField) => CopyField) => void
+    setter: React.Dispatch<React.SetStateAction<CopyField>>
     placeholder: string
     optional?: boolean
   }) => (
@@ -174,7 +182,7 @@ Suggest ONE improved version of this copy. Be concise, punchy, and on-brand. Kee
         <button
           className={styles.improveBtn}
           disabled={!field.value.trim() || field.improving}
-          onClick={() => improveWithAI(label, field.value, setField)}
+          onClick={() => improveField(label, field, setter)}
         >
           {field.improving ? <span className={styles.spinnerSm} /> : '✦'}
           {field.improving ? 'Improving…' : 'Improve with AI'}
@@ -184,25 +192,15 @@ Suggest ONE improved version of this copy. Be concise, punchy, and on-brand. Kee
         className={styles.input}
         placeholder={placeholder}
         value={field.value}
-        onChange={e => setField(prev => ({ ...prev, value: e.target.value, improved: '' }))}
+        onChange={e => setter(prev => ({ ...prev, value: e.target.value, improved: '' }))}
       />
       {field.improved && (
         <div className={styles.suggestion}>
           <span className={styles.suggestionLabel}>AI suggestion</span>
           <div className={styles.suggestionText}>{field.improved}</div>
           <div className={styles.suggestionActions}>
-            <button
-              className={styles.useBtn}
-              onClick={() => setField(prev => ({ ...prev, value: prev.improved, improved: '' }))}
-            >
-              Use this
-            </button>
-            <button
-              className={styles.dismissBtn}
-              onClick={() => setField(prev => ({ ...prev, improved: '' }))}
-            >
-              Dismiss
-            </button>
+            <button className={styles.useBtn} onClick={() => setter(prev => ({ ...prev, value: prev.improved, improved: '' }))}>Use this</button>
+            <button className={styles.dismissBtn} onClick={() => setter(prev => ({ ...prev, improved: '' }))}>Dismiss</button>
           </div>
         </div>
       )}
@@ -267,42 +265,17 @@ Suggest ONE improved version of this copy. Be concise, punchy, and on-brand. Kee
           {/* Copy fields */}
           <section className={styles.section}>
             <div className={styles.sectionLabel}>Email copy</div>
-
-            <CopyRow
-              label="Subject line"
-              field={subjectLine}
-              setField={setSubjectLine}
-              placeholder="e.g. 25% off swim — today only ☀️"
-            />
-            <CopyRow
-              label="Preview text"
-              field={previewText}
-              setField={setPreviewText}
-              placeholder="e.g. Shop the swim styles she'll wear all summer"
-              optional
-            />
-            <CopyRow
-              label="Headline"
-              field={headline}
-              setField={setHeadline}
-              placeholder="e.g. Summer Swim Is Here"
-            />
-            <CopyRow
-              label="Subheadline"
-              field={subheadline}
-              setField={setSubheadline}
-              placeholder="e.g. UPF 50+ styles for every splash"
-              optional
-            />
+            <CopyRow label="Subject line" field={subjectLine} setter={setSubjectLine} placeholder='e.g. "25% off swim — today only ☀️"' />
+            <CopyRow label="Preview text" field={previewText} setter={setPreviewText} placeholder='e.g. "Shop the swim styles she&apos;ll wear all summer"' optional />
+            <CopyRow label="Headline" field={headline} setter={setHeadline} placeholder='e.g. "Summer Swim Is Here"' />
+            <CopyRow label="Subheadline" field={subheadline} setter={setSubheadline} placeholder='e.g. "UPF 50+ styles for every splash"' optional />
           </section>
 
           {/* Callouts */}
           <section className={styles.section}>
             <div className={styles.sectionLabelRow}>
               <span className={styles.sectionLabel} style={{ margin: 0 }}>Callouts</span>
-              {callouts.length < 4 && (
-                <button className={styles.addBtn} onClick={addCallout}>+ Add callout</button>
-              )}
+              {callouts.length < 4 && <button className={styles.addBtn} onClick={addCallout}>+ Add callout</button>}
             </div>
             <div className={styles.dynamicFields}>
               {callouts.map((c, i) => (
@@ -310,32 +283,21 @@ Suggest ONE improved version of this copy. Be concise, punchy, and on-brand. Kee
                   <div className={styles.dynamicFieldTop}>
                     <span className={styles.copyLabel}>Callout {i + 1}</span>
                     <div className={styles.dynamicActions}>
-                      <button
-                        className={styles.improveBtn}
-                        disabled={!c.value.trim() || c.improving}
-                        onClick={() => improveCallout(c.id)}
-                      >
+                      <button className={styles.improveBtn} disabled={!c.value.trim() || c.improving} onClick={() => improveCallout(c.id)}>
                         {c.improving ? <span className={styles.spinnerSm} /> : '✦'}
                         {c.improving ? 'Improving…' : 'Improve with AI'}
                       </button>
-                      {callouts.length > 1 && (
-                        <button className={styles.removeBtn} onClick={() => removeCallout(c.id)}>✕</button>
-                      )}
+                      {callouts.length > 1 && <button className={styles.removeBtn} onClick={() => removeCallout(c.id)}>✕</button>}
                     </div>
                   </div>
-                  <input
-                    className={styles.input}
-                    placeholder='e.g. "UPF 50+" or "Family Matching"'
-                    value={c.value}
-                    onChange={e => updateCallout(c.id, e.target.value)}
-                  />
+                  <input className={styles.input} placeholder='e.g. "UPF 50+" or "Family Matching"' value={c.value} onChange={e => updateCallout(c.id, e.target.value)} />
                   {c.improved && (
                     <div className={styles.suggestion}>
                       <span className={styles.suggestionLabel}>AI suggestion</span>
                       <div className={styles.suggestionText}>{c.improved}</div>
                       <div className={styles.suggestionActions}>
-                        <button className={styles.useBtn} onClick={() => updateCallout(c.id, c.improved)}>Use this</button>
-                        <button className={styles.dismissBtn} onClick={() => setCallouts(prev => prev.map(x => x.id === c.id ? { ...x, improved: '' } : x))}>Dismiss</button>
+                        <button className={styles.useBtn} onClick={() => useCalloutSuggestion(c.id)}>Use this</button>
+                        <button className={styles.dismissBtn} onClick={() => dismissCallout(c.id)}>Dismiss</button>
                       </div>
                     </div>
                   )}
@@ -348,9 +310,7 @@ Suggest ONE improved version of this copy. Be concise, punchy, and on-brand. Kee
           <section className={styles.section}>
             <div className={styles.sectionLabelRow}>
               <span className={styles.sectionLabel} style={{ margin: 0 }}>CTA buttons</span>
-              {ctas.length < 4 && (
-                <button className={styles.addBtn} onClick={addCta}>+ Add CTA</button>
-              )}
+              {ctas.length < 4 && <button className={styles.addBtn} onClick={addCta}>+ Add CTA</button>}
             </div>
             <div className={styles.dynamicFields}>
               {ctas.map((c, i) => (
@@ -358,32 +318,21 @@ Suggest ONE improved version of this copy. Be concise, punchy, and on-brand. Kee
                   <div className={styles.dynamicFieldTop}>
                     <span className={styles.copyLabel}>CTA {i + 1}</span>
                     <div className={styles.dynamicActions}>
-                      <button
-                        className={styles.improveBtn}
-                        disabled={!c.value.trim() || c.improving}
-                        onClick={() => improveCta(c.id)}
-                      >
+                      <button className={styles.improveBtn} disabled={!c.value.trim() || c.improving} onClick={() => improveCta(c.id)}>
                         {c.improving ? <span className={styles.spinnerSm} /> : '✦'}
                         {c.improving ? 'Improving…' : 'Improve with AI'}
                       </button>
-                      {ctas.length > 1 && (
-                        <button className={styles.removeBtn} onClick={() => removeCta(c.id)}>✕</button>
-                      )}
+                      {ctas.length > 1 && <button className={styles.removeBtn} onClick={() => removeCta(c.id)}>✕</button>}
                     </div>
                   </div>
-                  <input
-                    className={styles.input}
-                    placeholder='e.g. "Shop Girls" or "Shop Now"'
-                    value={c.value}
-                    onChange={e => updateCta(c.id, e.target.value)}
-                  />
+                  <input className={styles.input} placeholder='e.g. "Shop Girls" or "Shop Now"' value={c.value} onChange={e => updateCta(c.id, e.target.value)} />
                   {c.improved && (
                     <div className={styles.suggestion}>
                       <span className={styles.suggestionLabel}>AI suggestion</span>
                       <div className={styles.suggestionText}>{c.improved}</div>
                       <div className={styles.suggestionActions}>
-                        <button className={styles.useBtn} onClick={() => updateCta(c.id, c.improved)}>Use this</button>
-                        <button className={styles.dismissBtn} onClick={() => setCtas(prev => prev.map(x => x.id === c.id ? { ...x, improved: '' } : x))}>Dismiss</button>
+                        <button className={styles.useBtn} onClick={() => useCtaSuggestion(c.id)}>Use this</button>
+                        <button className={styles.dismissBtn} onClick={() => dismissCta(c.id)}>Dismiss</button>
                       </div>
                     </div>
                   )}
@@ -393,16 +342,8 @@ Suggest ONE improved version of this copy. Be concise, punchy, and on-brand. Kee
           </section>
 
           {/* Submit */}
-          <button
-            className={styles.submitBtn}
-            onClick={handleSubmit}
-            disabled={!canSubmit || submitting}
-          >
-            {submitting ? (
-              <><span className={styles.spinner} /> Generating mockup…</>
-            ) : (
-              'Generate email mockup'
-            )}
+          <button className={styles.submitBtn} onClick={handleSubmit} disabled={!canSubmit || submitting}>
+            {submitting ? <><span className={styles.spinner} /> Generating mockup…</> : 'Generate email mockup'}
           </button>
         </div>
       </div>
