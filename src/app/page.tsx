@@ -6,7 +6,10 @@ import StudioLifestyle from '@/components/StudioLifestyle'
 import GarmentSwap from '@/components/GarmentSwap'
 import BackgroundEditor from '@/components/BackgroundEditor'
 import RetouchEditing from '@/components/RetouchEditing'
+import EmailMarketing from '@/components/EmailMarketing'
 import styles from './page.module.css'
+
+const READY_JOBS = ['flat_product_shot', 'studio_lifestyle', 'garment_swap', 'background_editor', 'retouch_editing', 'email_marketing']
 
 export default function Home() {
   const [activeJob, setActiveJob] = useState('flat_product_shot')
@@ -36,7 +39,10 @@ export default function Home() {
         <div style={{ display: activeJob === 'retouch_editing' ? 'flex' : 'none', flex: 1, overflow: 'hidden' }}>
           <RetouchEditing />
         </div>
-        {activeJob !== 'flat_product_shot' && activeJob !== 'studio_lifestyle' && activeJob !== 'garment_swap' && activeJob !== 'background_editor' && activeJob !== 'retouch_editing' && (
+        <div style={{ display: activeJob === 'email_marketing' ? 'flex' : 'none', flex: 1, overflow: 'hidden' }}>
+          <EmailMarketing />
+        </div>
+        {!READY_JOBS.includes(activeJob) && (
           <div className={styles.comingSoon}>
             <div className={styles.comingSoonIcon}>◫</div>
             <div className={styles.comingSoonTitle}>Coming soon</div>
