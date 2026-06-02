@@ -3,6 +3,7 @@ import { useState, useRef } from 'react'
 import styles from './EmailMarketing.module.css'
 
 const N8N_EMAIL_WEBHOOK = process.env.NEXT_PUBLIC_N8N_EMAIL_WEBHOOK || ''
+const N8N_COPY_IMPROVER = 'https://rufflebutts.app.n8n.cloud/webhook/copy-improver'
 
 interface CopyField {
   id: string
@@ -14,8 +15,6 @@ interface CopyField {
 function makeCopyField(id: string): CopyField {
   return { id, value: '', improved: '', improving: false }
 }
-
-const N8N_COPY_IMPROVER = 'https://rufflebutts.app.n8n.cloud/webhook/copy-improver'
 
 async function fetchImprovement(fieldLabel: string, currentValue: string, campaignBrief: string): Promise<string> {
   const res = await fetch(N8N_COPY_IMPROVER, {
@@ -29,6 +28,55 @@ async function fetchImprovement(fieldLabel: string, currentValue: string, campai
   })
   const data = await res.json()
   return data.improved_copy?.trim() || ''
+}
+
+// ── CopyRow moved OUTSIDE the component to fix focus loss on re-render ──
+interface CopyRowProps {
+  label: string
+  field: CopyField
+  placeholder: string
+  optional?: boolean
+  onImprove: () => void
+  onChange: (value: string) => void
+  onUse: () => void
+  onDismiss: () => void
+}
+
+function CopyRow({ label, field, placeholder, optional, onImprove, onChange, onUse, onDismiss }: CopyRowProps) {
+  return (
+    <div className={styles.copyRow}>
+      <div className={styles.copyRowTop}>
+        <span className={styles.copyLabel}>
+          {label}
+          {optional && <span className={styles.optional}> (optional)</span>}
+        </span>
+        <button
+          className={styles.improveBtn}
+          disabled={!field.value.trim() || field.improving}
+          onClick={onImprove}
+        >
+          {field.improving ? <span className={styles.spinnerSm} /> : '✦'}
+          {field.improving ? 'Improving…' : 'Improve with AI'}
+        </button>
+      </div>
+      <input
+        className={styles.input}
+        placeholder={placeholder}
+        value={field.value}
+        onChange={e => onChange(e.target.value)}
+      />
+      {field.improved && (
+        <div className={styles.suggestion}>
+          <span className={styles.suggestionLabel}>AI suggestion</span>
+          <div className={styles.suggestionText}>{field.improved}</div>
+          <div className={styles.suggestionActions}>
+            <button className={styles.useBtn} onClick={onUse}>Use this</button>
+            <button className={styles.dismissBtn} onClick={onDismiss}>Dismiss</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function EmailMarketing() {
@@ -152,54 +200,6 @@ export default function EmailMarketing() {
     setSubmitting(false)
   }
 
-  // ── Reusable copy field row ──────────────────────────────────────
-  const CopyRow = ({
-    label,
-    field,
-    setter,
-    placeholder,
-    optional,
-  }: {
-    label: string
-    field: CopyField
-    setter: React.Dispatch<React.SetStateAction<CopyField>>
-    placeholder: string
-    optional?: boolean
-  }) => (
-    <div className={styles.copyRow}>
-      <div className={styles.copyRowTop}>
-        <span className={styles.copyLabel}>
-          {label}
-          {optional && <span className={styles.optional}> (optional)</span>}
-        </span>
-        <button
-          className={styles.improveBtn}
-          disabled={!field.value.trim() || field.improving}
-          onClick={() => improveField(label, field, setter)}
-        >
-          {field.improving ? <span className={styles.spinnerSm} /> : '✦'}
-          {field.improving ? 'Improving…' : 'Improve with AI'}
-        </button>
-      </div>
-      <input
-        className={styles.input}
-        placeholder={placeholder}
-        value={field.value}
-        onChange={e => setter(prev => ({ ...prev, value: e.target.value, improved: '' }))}
-      />
-      {field.improved && (
-        <div className={styles.suggestion}>
-          <span className={styles.suggestionLabel}>AI suggestion</span>
-          <div className={styles.suggestionText}>{field.improved}</div>
-          <div className={styles.suggestionActions}>
-            <button className={styles.useBtn} onClick={() => setter(prev => ({ ...prev, value: prev.improved, improved: '' }))}>Use this</button>
-            <button className={styles.dismissBtn} onClick={() => setter(prev => ({ ...prev, improved: '' }))}>Dismiss</button>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-
   return (
     <div className={styles.layout}>
       {/* ── Form Panel ── */}
@@ -258,10 +258,44 @@ export default function EmailMarketing() {
           {/* Copy fields */}
           <section className={styles.section}>
             <div className={styles.sectionLabel}>Email copy</div>
-            <CopyRow label="Subject line" field={subjectLine} setter={setSubjectLine} placeholder='e.g. "25% off swim — today only ☀️"' />
-            <CopyRow label="Preview text" field={previewText} setter={setPreviewText} placeholder='e.g. "Shop the swim styles she&apos;ll wear all summer"' optional />
-            <CopyRow label="Headline" field={headline} setter={setHeadline} placeholder='e.g. "Summer Swim Is Here"' />
-            <CopyRow label="Subheadline" field={subheadline} setter={setSubheadline} placeholder='e.g. "UPF 50+ styles for every splash"' optional />
+            <CopyRow
+              label="Subject line"
+              field={subjectLine}
+              placeholder='e.g. "25% off swim — today only ☀️"'
+              onImprove={() => improveField('Subject line', subjectLine, setSubjectLine)}
+              onChange={v => setSubjectLine(prev => ({ ...prev, value: v, improved: '' }))}
+              onUse={() => setSubjectLine(prev => ({ ...prev, value: prev.improved, improved: '' }))}
+              onDismiss={() => setSubjectLine(prev => ({ ...prev, improved: '' }))}
+            />
+            <CopyRow
+              label="Preview text"
+              field={previewText}
+              placeholder="e.g. Shop the swim styles she'll wear all summer"
+              optional
+              onImprove={() => improveField('Preview text', previewText, setPreviewText)}
+              onChange={v => setPreviewText(prev => ({ ...prev, value: v, improved: '' }))}
+              onUse={() => setPreviewText(prev => ({ ...prev, value: prev.improved, improved: '' }))}
+              onDismiss={() => setPreviewText(prev => ({ ...prev, improved: '' }))}
+            />
+            <CopyRow
+              label="Headline"
+              field={headline}
+              placeholder='e.g. "Summer Swim Is Here"'
+              onImprove={() => improveField('Headline', headline, setHeadline)}
+              onChange={v => setHeadline(prev => ({ ...prev, value: v, improved: '' }))}
+              onUse={() => setHeadline(prev => ({ ...prev, value: prev.improved, improved: '' }))}
+              onDismiss={() => setHeadline(prev => ({ ...prev, improved: '' }))}
+            />
+            <CopyRow
+              label="Subheadline"
+              field={subheadline}
+              placeholder='e.g. "UPF 50+ styles for every splash"'
+              optional
+              onImprove={() => improveField('Subheadline', subheadline, setSubheadline)}
+              onChange={v => setSubheadline(prev => ({ ...prev, value: v, improved: '' }))}
+              onUse={() => setSubheadline(prev => ({ ...prev, value: prev.improved, improved: '' }))}
+              onDismiss={() => setSubheadline(prev => ({ ...prev, improved: '' }))}
+            />
           </section>
 
           {/* Callouts */}
