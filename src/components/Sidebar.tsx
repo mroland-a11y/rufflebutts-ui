@@ -1,17 +1,21 @@
 'use client'
 import styles from './Sidebar.module.css'
 
-const jobTypes = [
+const studioJobs = [
   { id: 'flat_product_shot', label: 'Flat product shots', ready: true },
   { id: 'studio_lifestyle', label: 'Studio & Lifestyle', ready: true },
   { id: 'garment_swap', label: 'Garment swap', ready: true },
   { id: 'background_editor', label: 'Background', ready: true },
+  { id: 'retouch_editing', label: 'Retouch / editing', ready: true },
   { id: 'outfit_builder', label: 'Outfit builder', ready: false },
-  
   { id: 'campaign_assets', label: 'Campaign assets', ready: false },
   { id: 'detail_shots', label: 'Detail shots', ready: false },
-  { id: 'retouch_editing', label: 'Retouch / editing', ready: true },
   { id: 'size_inclusivity', label: 'Size inclusivity', ready: false },
+]
+
+const marketingJobs = [
+  { id: 'email_marketing', label: 'Email Campaign', ready: true },
+  { id: 'paid_assets', label: 'Paid Assets', ready: false },
 ]
 
 interface SidebarProps {
@@ -30,8 +34,21 @@ export default function Sidebar({ activeJob, onJobSelect, onViewJobs, jobCount }
       </div>
 
       <nav className={styles.nav}>
-        <div className={styles.navLabel}>New Job</div>
-        {jobTypes.map(job => (
+        <div className={styles.navLabel}>Studio</div>
+        {studioJobs.map(job => (
+          <button
+            key={job.id}
+            className={`${styles.navItem} ${activeJob === job.id ? styles.active : ''} ${!job.ready ? styles.disabled : ''}`}
+            onClick={() => job.ready && onJobSelect(job.id)}
+          >
+            <span className={styles.dot} />
+            <span className={styles.navText}>{job.label}</span>
+            {!job.ready && <span className={styles.soon}>Soon</span>}
+          </button>
+        ))}
+
+        <div className={`${styles.navLabel} ${styles.navLabelSpaced}`}>Marketing</div>
+        {marketingJobs.map(job => (
           <button
             key={job.id}
             className={`${styles.navItem} ${activeJob === job.id ? styles.active : ''} ${!job.ready ? styles.disabled : ''}`}
