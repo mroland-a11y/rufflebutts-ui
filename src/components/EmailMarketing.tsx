@@ -15,27 +15,20 @@ function makeCopyField(id: string): CopyField {
   return { id, value: '', improved: '', improving: false }
 }
 
+const N8N_COPY_IMPROVER = 'https://rufflebutts.app.n8n.cloud/webhook/copy-improver'
+
 async function fetchImprovement(fieldLabel: string, currentValue: string, campaignBrief: string): Promise<string> {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const res = await fetch(N8N_COPY_IMPROVER, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1000,
-      messages: [{
-        role: 'user',
-        content: `You are a children's apparel email marketing copywriter for RuffleButts, a brand known for ruffle-bottom clothing and family matching sets.
-
-Campaign brief: "${campaignBrief}"
-Field: ${fieldLabel}
-Current copy: "${currentValue}"
-
-Suggest ONE improved version of this copy. Be concise, punchy, and on-brand. Keep it the same length or shorter. Return ONLY the improved copy text, nothing else.`
-      }]
+      field_label: fieldLabel,
+      current_copy: currentValue,
+      campaign_brief: campaignBrief,
     })
   })
   const data = await res.json()
-  return data.content?.[0]?.text?.trim() || ''
+  return data.improved_copy?.trim() || ''
 }
 
 export default function EmailMarketing() {
@@ -218,7 +211,7 @@ export default function EmailMarketing() {
           </div>
           <div className={styles.modelBadge}>
             <span className={styles.statusDot} />
-            Claude + Gemini
+            Gemini
           </div>
         </div>
 
