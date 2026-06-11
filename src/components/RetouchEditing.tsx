@@ -3,7 +3,7 @@ import { useState, useRef } from 'react'
 import styles from './GarmentSwap.module.css'
 import ResultsPanel, { ResultImage } from './ResultsPanel'
 
-const REFINE_WEBHOOK = process.env.NEXT_PUBLIC_N8N_RETOUCH_WEBHOOK || 'https://rufflebutts.app.n8n.cloud/webhook/image-refine-upload'
+const RETOUCH_WEBHOOK = process.env.NEXT_PUBLIC_N8N_RETOUCH_WEBHOOK || 'https://rufflebutts.app.n8n.cloud/webhook/facial-retouch'
 
 interface SourceImage {
   file: File
@@ -49,8 +49,8 @@ export default function RetouchEditing() {
     setSubmitting(true)
 
     const formData = new FormData()
-    formData.append('Original_Image', sourceImage.file)
-    formData.append('Refine_Instructions', instructions)
+    formData.append('Source_Image', sourceImage.file)
+    formData.append('Retouch_Instructions', instructions)
 
     const jobId = Date.now().toString()
     setJobs(prev => [{
@@ -60,7 +60,7 @@ export default function RetouchEditing() {
     }, ...prev])
 
     try {
-      const response = await fetch(REFINE_WEBHOOK, { method: 'POST', body: formData })
+      const response = await fetch(RETOUCH_WEBHOOK, { method: 'POST', body: formData })
       if (response.ok) {
         const data = await response.json()
         const responseData = Array.isArray(data) ? data[0] : data
@@ -97,14 +97,18 @@ export default function RetouchEditing() {
   const handleRefineTextChange = (fileId: string, text: string) =>
     setResults(prev => prev.map(img => img.fileId === fileId ? { ...img, refineText: text } : img))
 
+  // NOTE: This in-result refine action posts a URL (Original_Image_URL) back to the
+  // facial-retouch webhook, but that workflow only accepts a binary Source_Image.
+  // It will not work until the workflow is given a path that fetches the GCS URL.
+  // Left intact so the UI still compiles; ask Claude to wire up a working refine flow.
   const handleRefineSubmit = async (image: GeneratedImage) => {
     if (!image.refineText) return
     setRefineSubmitting(image.fileId)
     const formData = new FormData()
     formData.append('Original_Image_URL', image.imageUrl)
-    formData.append('Refine_Instructions', image.refineText as string)
+    formData.append('Retouch_Instructions', image.refineText as string)
     try {
-      const response = await fetch(REFINE_WEBHOOK, { method: 'POST', body: formData })
+      const response = await fetch(RETOUCH_WEBHOOK, { method: 'POST', body: formData })
       if (response.ok) {
         const data = await response.json()
         const responseData = Array.isArray(data) ? data[0] : data
